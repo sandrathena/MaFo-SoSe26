@@ -4263,7 +4263,11 @@ print(ergebnisse_ermuedung)
 #### Mediation ##############################################################################################
 #############################################################################################################
 
+#############################################################################################################
+#### Hypothese 1: Größe -> Fluency -> Inkonsistenz
+#############################################################################################################
 
+<<<<<<< HEAD
 #### IRGENDWAS MIT DEN LMER PAKETEN STIMMT HIE RNICHT BRUH
 
 
@@ -4271,6 +4275,8 @@ print(ergebnisse_ermuedung)
 #### Hypothese 1: Größe -> Fluency -> Inkonsistenz
 #############################################################################################################
 
+=======
+>>>>>>> 3d36fecd146c084a91beb55ca0de3540f548f7c3
 # Relevante Bedingungen auswählen
 mediation_groesse <- salienz_reshaped %>%
   filter(Condition %in% c("Schuh-stark-dezentral", "Jacke-stark-dezentral")) %>%
@@ -4345,7 +4351,10 @@ results_groesse <- mediate(
   boot = FALSE,
   group.out = "number"
 )
+<<<<<<< HEAD
 class(pfad_a_groesse)
+=======
+>>>>>>> 3d36fecd146c084a91beb55ca0de3540f548f7c3
 summary(results_groesse)
 
 #############################################################################################################
