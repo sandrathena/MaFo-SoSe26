@@ -452,7 +452,7 @@ zeige_und_speichere_grafik(
 # Betroffene Teilnehmer anzeigen
 salienz %>%
   filter(Antwortzeit_auffaellig) %>%
-  select(
+  dplyr::select(
     number,
     Bearbeitungszeit_Minuten,
     Relative_Speed_Index,
@@ -506,7 +506,7 @@ nrow(salienz)
 print(salienz$Suspicion.Probe)
 
 suspicionprobe_antworten <- salienz %>%
-  select(
+  dplyr::select(
     number,
     Suspicion.Probe)
 write.csv2(
@@ -858,7 +858,7 @@ zeige_und_speichere_grafik(
 #### Jetzt die demografischen Werte vom Verdächtigen mit ID 32 von der Antwortmusteranalyse betrachten ##########
 salienz %>%
   filter(as.character(number) == "32") %>%
-  select(
+  dplyr::select(
     number,
     Alter,
     Geschlecht,
@@ -1404,7 +1404,7 @@ speichere_p_werte <- function(objekt, objektname, bestandteil = "") {
     p_wert_zaehler <<- p_wert_zaehler + nrow(neue_p_werte)
     
     neue_p_werte <- neue_p_werte %>%
-      select(
+      dplyr::select(
         Reihenfolge,
         Objekt,
         Bestandteil,
@@ -1482,7 +1482,7 @@ prepare_paired_data <- function(condition1, condition2) {
   
   salienz_reshaped %>%
     filter(Condition %in% c(condition1, condition2)) %>%
-    select(number, Condition, Mittelwert_Inkonsistenz) %>%
+    dplyr::select(number, Condition, Mittelwert_Inkonsistenz) %>%
     pivot_wider(
       names_from = Condition,
       values_from = Mittelwert_Inkonsistenz
@@ -2237,7 +2237,7 @@ power_staerke <- power_t_paired(
 
 #### Fall 4: Baseline vs. leicht vs. stark ####################################################################
 friedman_matrix <- inkonsistenz_anova_staerke %>%
-  select(
+  dplyr::select(
     number,
     Condition,
     Mittelwert_Inkonsistenz
@@ -2246,7 +2246,7 @@ friedman_matrix <- inkonsistenz_anova_staerke %>%
     names_from = Condition,
     values_from = Mittelwert_Inkonsistenz
   ) %>%
-  select(
+  dplyr::select(
     `Jacke minimalistisch dezentral`,
     `Jacke leicht dezentral`,
     `Jacke stark dezentral`
@@ -3004,7 +3004,7 @@ cvpa_personen %>% count(CVPA_Gruppe)
 
 salienz_reshaped <- salienz_reshaped %>%
   left_join(
-    cvpa_personen %>% select(number, CVPA_Gruppe),
+    cvpa_personen %>% dplyr::select(number, CVPA_Gruppe),
     by = "number"
   )
 
