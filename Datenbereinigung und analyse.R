@@ -11,6 +11,10 @@ library(afex)
 library(emmeans)
 library(rstatix)
 library(pwr)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(mediation)
 
 
 
@@ -3705,21 +3709,20 @@ robust_anova_staerke_schuh_cvpa
 
 
 
-
 #############################################################################################################
 #### Ermüdungseffekt ########################################################################################
 #############################################################################################################
 
-# Wird ein Outfit anders bewertet, wenns als erstes vs als letztes gezeigt wird?
+# Wird ein Outfit anders bewertet, wenn es als erstes vs. als letztes gezeigt wird?
 
-# Gucken was bei Randomisierung gespeichert wird, die 10 sek Bilder!
+# Gespeicherte Randomisierung der 10-Sekunden-Bilder prüfen
 unique(salienz$Randomisierung_1)
 unique(salienz$Randomisierung_2)
 unique(salienz$Randomisierung_3)
 unique(salienz$Randomisierung_4)
 unique(salienz$Randomisierung_5)
 
-# funktion zum Benennen der unipark-Zahlen
+# Unipark-IDs den Conditions zuordnen
 randomisierung_zu_condition <- function(x) {
   x <- as.character(x)
   case_when(
@@ -3728,23 +3731,27 @@ randomisierung_zu_condition <- function(x) {
     x == "7698426" ~ "Jacke-stark-zentral",
     x == "7698437" ~ "Jacke-leicht-dezentral",
     x == "7698434" ~ "Min-Baseline",
-    TRUE ~ NA_character_)}
+    TRUE ~ NA_character_
+  )
+}
 
-# Erstes und letztes Outfit pro TN bestimmen
+# Erstes und letztes Outfit pro Person bestimmen
 salienz_reshaped <- salienz_reshaped %>%
   mutate(
     Erstes_Outfit = randomisierung_zu_condition(Randomisierung_1),
-    Letztes_Outfit = randomisierung_zu_condition(Randomisierung_5))
+    Letztes_Outfit = randomisierung_zu_condition(Randomisierung_5)
+  )
 
-# Rechnen ob Zuordnung funktioniert hat
+# Zuordnung prüfen
 salienz_reshaped %>%
   distinct(number, Erstes_Outfit) %>%
   count(Erstes_Outfit)
+
 salienz_reshaped %>%
   distinct(number, Letztes_Outfit) %>%
   count(Letztes_Outfit)
 
-# hier müssen dann 270 = 135 + 135 Zeilen rauskommen
+# Erstes und letztes Outfit auswählen
 ermuedung_plot <- salienz_reshaped %>%
   mutate(
     Reihenfolge = case_when(
@@ -3753,50 +3760,33 @@ ermuedung_plot <- salienz_reshaped %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  filter(
-    !is.na(Reihenfolge),
-    !is.na(Mittelwert_Inkonsistenz)
-  ) %>%
+  filter(!is.na(Reihenfolge), !is.na(Mittelwert_Inkonsistenz)) %>%
   mutate(
     Reihenfolge = factor(
       Reihenfolge,
-      levels = c(
-        "Als erstes gezeigt",
-        "Als letztes gezeigt"
-      )
+      levels = c("Als erstes gezeigt", "Als letztes gezeigt")
     )
   )
 
-# deskriptiv angucken
+
+#### Deskriptive Analyse ####################################################################################
+
 deskriptiv_ermuedung <- ermuedung_plot %>%
-  group_by(
-    Condition,
-    Reihenfolge
-  ) %>%
+  group_by(Condition, Reihenfolge) %>%
   summarise(
     n = n(),
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
+    Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
+    IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
+    Mittelwert = mean(Mittelwert_Inkonsistenz, na.rm = TRUE),
+    SD = sd(Mittelwert_Inkonsistenz, na.rm = TRUE),
     .groups = "drop"
   )
 
 print(deskriptiv_ermuedung)
 
-# boxplot
+
+#### Boxplots ################################################################################################
+
 outfit_namen <- c(
   "Min-Baseline" = "Baseline",
   "Jacke-leicht-dezentral" = "Jacke leicht dezentral",
@@ -3810,9 +3800,7 @@ boxplots_ermuedung <- list()
 for (outfit in conditions) {
   
   plot_daten <- ermuedung_plot %>%
-    filter(
-      Condition == outfit
-    )
+    filter(Condition == outfit)
   
   plot <- ggplot(
     plot_daten,
@@ -3822,24 +3810,16 @@ for (outfit in conditions) {
       fill = Reihenfolge
     )
   ) +
-    geom_boxplot(
-      width = 0.6
-    ) +
+    geom_boxplot(width = 0.6) +
     scale_fill_manual(
       values = c(
         "Als erstes gezeigt" = "#EED5B7",
         "Als letztes gezeigt" = "#CDAA7D"
       )
     ) +
-    scale_y_continuous(
-      breaks = 1:5,
-      limits = c(1, 5)
-    ) +
+    scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
-      title = paste(
-        "Inkonsistenzbewertung:",
-        outfit_namen[outfit]
-      ),
+      title = paste("Inkonsistenzbewertung:", outfit_namen[outfit]),
       subtitle = "Als erstes vs. als letztes gezeigt",
       x = "Position in der Befragung",
       y = "Wahrgenommene stilistische Inkonsistenz"
@@ -3847,58 +3827,31 @@ for (outfit in conditions) {
     theme_minimal() +
     theme(
       legend.position = "none",
-      plot.title = element_text(
-        hjust = 0.5
-      ),
-      plot.subtitle = element_text(
-        hjust = 0.5
-      )
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
     )
+  
   speichere_grafik(plot, paste0("Ermuedung_", outfit))
-  
   boxplots_ermuedung[[outfit]] <- plot
-  
   print(plot)
 }
 
-# Die deskriptive Analyse ergab keinen eindeutigen Hinweis auf einen systematischen Ermüdungseffekt. 
-# Die Inkonsistenzbewertungen der als erstes bzw. als letztes 
-# präsentierten Outfits unterschieden sich je nach Outfit in unterschiedliche Richtungen. Während die 
-# Inkonsistenzbewertung der stark zentral positionierten Jacke bei einer Präsentation am Ende niedriger ausfiel 
-# als bei einer Präsentation zu Beginn, zeigten drei der übrigen Outfits tendenziell höhere Bewertungen bei später 
-# Präsentation. Für die Baseline waren die Mittelwerte nahezu identisch. Insgesamt lässt sich daher deskriptiv 
-# kein konsistenter Reihenfolge- bzw. Ermüdungseffekt erkennen.
-# Die Inkonsistenz wurde bei Min-BAseline und stark zentraler Jacke beim letzten Bild schwächer wahrgenommen als ersten
-# Die inkonsistenz wurde bei den anderen beim letzten Bild stärker wahrgenommen als beim ersten
 
-
-
-#### Normalverteilung mit Shapiro-Wilk ########################################################################
+#### Normalverteilung mit Shapiro-Wilk ######################################################################
 
 shapiro_ermuedung <- ermuedung_plot %>%
-  group_by(
-    Condition,
-    Reihenfolge
-  ) %>%
-  shapiro_test(
-    Mittelwert_Inkonsistenz
-  )
+  group_by(Condition, Reihenfolge) %>%
+  shapiro_test(Mittelwert_Inkonsistenz)
+
 print(shapiro_ermuedung)
 speichere_p_werte(shapiro_ermuedung, "shapiro_ermuedung")
 
-# Normalverteilung mit Plot
+# Normalverteilung grafisch prüfen
 zeige_und_speichere_grafik(
-  ggplot(
-    ermuedung_plot,
-    aes(
-      sample = Mittelwert_Inkonsistenz
-    )
-  ) +
+  ggplot(ermuedung_plot, aes(sample = Mittelwert_Inkonsistenz)) +
     stat_qq() +
     stat_qq_line() +
-    facet_grid(
-      Condition ~ Reihenfolge
-    ) +
+    facet_grid(Condition ~ Reihenfolge) +
     labs(
       title = "QQ-Plots der Inkonsistenzbewertung",
       subtitle = "Erstes vs. letztes gezeigtes Outfit",
@@ -3907,120 +3860,71 @@ zeige_und_speichere_grafik(
     ) +
     theme_minimal() +
     theme(
-      plot.title = element_text(
-        hjust = 0.5
-      ),
-      plot.subtitle = element_text(
-        hjust = 0.5
-      )
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
     ),
   "QQ-Plots der Inkonsistenzbewertung"
 )
 
-#### Levene-Test ##############################################################################################
+
+#### Levene-Test ############################################################################################
+
 levene_ermuedung <- ermuedung_plot %>%
-  group_by(
-    Condition
-  ) %>%
-  levene_test(
-    Mittelwert_Inkonsistenz ~ Reihenfolge
-  )
+  group_by(Condition) %>%
+  levene_test(Mittelwert_Inkonsistenz ~ Reihenfolge)
 
 print(levene_ermuedung)
 speichere_p_werte(levene_ermuedung, "levene_ermuedung")
 
 
-# Test für jedes Outfit automatisch wählen
-ergebnisse_ermuedung <- data.frame()
+#### Hypothesentest für jedes Outfit ########################################################################
 
+ergebnisse_ermuedung <- data.frame()
 
 for (outfit in conditions) {
   
-  
-  #### Daten für aktuelles Outfit #############################################################################
-  
+  # Daten des aktuellen Outfits
   daten_outfit <- ermuedung_plot %>%
-    filter(
-      Condition == outfit
-    ) %>%
+    filter(Condition == outfit) %>%
     droplevels()
   
-  
-  #### Gruppen einzeln speichern ##############################################################################
-  
+  # Gruppen getrennt speichern
   zuerst <- daten_outfit %>%
-    filter(
-      Reihenfolge == "Als erstes gezeigt"
-    ) %>%
-    pull(
-      Mittelwert_Inkonsistenz
-    )
-  
+    filter(Reihenfolge == "Als erstes gezeigt") %>%
+    pull(Mittelwert_Inkonsistenz)
   
   zuletzt <- daten_outfit %>%
-    filter(
-      Reihenfolge == "Als letztes gezeigt"
-    ) %>%
-    pull(
-      Mittelwert_Inkonsistenz
-    )
+    filter(Reihenfolge == "Als letztes gezeigt") %>%
+    pull(Mittelwert_Inkonsistenz)
   
+  # Normalverteilung prüfen
+  shapiro_zuerst <- shapiro.test(zuerst)
+  speichere_p_werte(shapiro_zuerst, "shapiro_zuerst", outfit)
   
-  #### Normalverteilung prüfen #################################################################################
+  shapiro_zuletzt <- shapiro.test(zuletzt)
+  speichere_p_werte(shapiro_zuletzt, "shapiro_zuletzt", outfit)
   
-  shapiro_zuerst <- shapiro.test(
-    zuerst
-  )
-  speichere_p_werte(
-    shapiro_zuerst,
-    "shapiro_zuerst",
-    outfit
-  )
-  
-  shapiro_zuletzt <- shapiro.test(
-    zuletzt
-  )
-  speichere_p_werte(
-    shapiro_zuletzt,
-    "shapiro_zuletzt",
-    outfit
-  )
-  
-  
-  #### Varianzhomogenität prüfen ##############################################################################
-  
+  # Varianzhomogenität prüfen
   levene_result <- car::leveneTest(
     Mittelwert_Inkonsistenz ~ Reihenfolge,
     data = daten_outfit
   )
-  
   levene_p <- levene_result$`Pr(>F)`[1]
-  speichere_p_werte(
-    levene_result,
-    "levene_result",
-    outfit
-  )
+  speichere_p_werte(levene_result, "levene_result", outfit)
   
-  #### Passenden Hypothesentest auswählen #####################################################################
-  if (
-    shapiro_zuerst$p.value > 0.05 &&
-    shapiro_zuletzt$p.value > 0.05) {
-    
-    #### Normalverteilung gegeben ##############################################################################
+  # Test abhängig von Voraussetzungen auswählen
+  if (shapiro_zuerst$p.value > 0.05 &&
+      shapiro_zuletzt$p.value > 0.05) {
     if (levene_p > 0.05) {
-      
-      #### unabhängiger t-Test ##################################################################################
       test_result <- t.test(
         zuerst,
         zuletzt,
         paired = FALSE,
         var.equal = TRUE,
-        alternative = "two.sided")
+        alternative = "two.sided"
+      )
       verwendeter_test <- "Unabhängiger t-Test"
     } else {
-      
-      #### Welch-t-Test bei unterschiedlichen Varianzen #########################################################
-      
       test_result <- t.test(
         zuerst,
         zuletzt,
@@ -4028,16 +3932,10 @@ for (outfit in conditions) {
         var.equal = FALSE,
         alternative = "two.sided"
       )
-      
       verwendeter_test <- "Welch-t-Test"
     }
     
-    
   } else {
-    
-    
-    #### Mann-Whitney-U-Test bei verletzter Normalverteilung ####################################################
-    
     test_result <- wilcox.test(
       zuerst,
       zuletzt,
@@ -4045,83 +3943,41 @@ for (outfit in conditions) {
       alternative = "two.sided",
       exact = FALSE
     )
-    
     verwendeter_test <- "Mann-Whitney-U-Test"
   }
   
-  speichere_p_werte(
-    test_result,
-    verwendeter_test,
-    outfit
-  )
+  speichere_p_werte(test_result, verwendeter_test, outfit)
   
-  #### Ergebnisse speichern ####################################################################################
-  
+  # Ergebnisse speichern
   ergebnisse_ermuedung <- rbind(
     ergebnisse_ermuedung,
-    
     data.frame(
       Outfit = outfit,
-      
       n_zuerst = length(zuerst),
       n_zuletzt = length(zuletzt),
-      
-      Mittelwert_zuerst = mean(
-        zuerst,
-        na.rm = TRUE
-      ),
-      
-      Mittelwert_zuletzt = mean(
-        zuletzt,
-        na.rm = TRUE
-      ),
-      
-      Differenz = mean(
-        zuletzt,
-        na.rm = TRUE
-      ) -
-        mean(
-          zuerst,
-          na.rm = TRUE
-        ),
-      
-      Shapiro_p_zuerst =
-        shapiro_zuerst$p.value,
-      
-      Shapiro_p_zuletzt =
-        shapiro_zuletzt$p.value,
-      
-      Levene_p =
-        levene_p,
-      
-      Test =
-        verwendeter_test,
-      
-      Teststatistik =
-        unname(test_result$statistic),
-      
-      p_Wert =
-        test_result$p.value
-    ))}
-
-#### Holm-Korrektur für fünf Tests ############################################################################
-ergebnisse_ermuedung <- ergebnisse_ermuedung %>%
-  mutate(
-    
-    p_Wert_Holm = p.adjust(
-      p_Wert,
-      method = "holm"
-    ),
-    
-    Signifikant_nach_Holm = ifelse(
-      p_Wert_Holm < 0.05,
-      "Ja",
-      "Nein"
+      Mittelwert_zuerst = mean(zuerst, na.rm = TRUE),
+      Mittelwert_zuletzt = mean(zuletzt, na.rm = TRUE),
+      Differenz = mean(zuletzt, na.rm = TRUE) - mean(zuerst, na.rm = TRUE),
+      Shapiro_p_zuerst = shapiro_zuerst$p.value,
+      Shapiro_p_zuletzt = shapiro_zuletzt$p.value,
+      Levene_p = levene_p,
+      Test = verwendeter_test,
+      Teststatistik = unname(test_result$statistic),
+      p_Wert = test_result$p.value
     )
   )
+}
 
-# Die Holm-korrigierten p-Werte entstehen erst an dieser Stelle
-# und werden deshalb auch erst jetzt an die p-Wert-Tabelle angehängt.
+
+#### Holm-Korrektur für fünf Tests ##########################################################################
+
+ergebnisse_ermuedung <- ergebnisse_ermuedung %>%
+  mutate(
+    p_Wert_Holm = p.adjust(p_Wert, method = "holm"),
+    Signifikant_nach_Holm = ifelse(p_Wert_Holm < 0.05, "Ja", "Nein")
+  )
+
+# Holm-korrigierte p-Werte separat speichern
 for (i in seq_len(nrow(ergebnisse_ermuedung))) {
   speichere_p_wert_einzeln(
     objektname = "ergebnisse_ermuedung",
@@ -4131,16 +3987,7 @@ for (i in seq_len(nrow(ergebnisse_ermuedung))) {
     p_wert = ergebnisse_ermuedung$p_Wert_Holm[i]
   )
 }
-
 print(ergebnisse_ermuedung)
-# Für die stark zentral positionierte Jacke zeigte sich zwar deskriptiv der größte 
-# Unterschied zwischen einer Präsentation zu Beginn (M = 3,74) und am Ende (M = 3,17) der Befragung. 
-# Der zunächst beobachtete Unterschied war ohne Korrektur statistisch signifikant (p = .033), 
-# bestand jedoch nach Holm-Korrektur für multiples Testen nicht mehr (p_adj = .163).
-# Es ergeben sich keine statistisch signifikanten Hinweise darauf, dass die Position 
-# eines Outfits zu Beginn bzw. am Ende der Befragung dessen Inkonsistenzbewertung beeinflusst.
-
-
 
 
 
@@ -4148,11 +3995,6 @@ print(ergebnisse_ermuedung)
 #############################################################################################################
 #### Mediation ##############################################################################################
 #############################################################################################################
-
-
-
-
-
 
 
 
