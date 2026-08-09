@@ -1204,3 +1204,23 @@ print(boxplots_outfits)
 
 # Boxplots als PNG speichern
 ggsave(filename = "Boxplots_Bewertung_aller_Outfits.png", plot = boxplots_outfits, width = 14, height = 12, dpi = 300)
+
+
+
+
+
+
+###############################################################################################################
+#### Datenset schreiben #######################################################################################
+###############################################################################################################
+
+
+write.csv(
+  salienz_reshaped,
+  "pretest_salienz-reshaped.csv",
+  row.names = FALSE
+)
+
+
+
+
