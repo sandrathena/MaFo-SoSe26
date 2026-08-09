@@ -1448,3 +1448,7079 @@ speichere_p_wert_einzeln <- function(objektname, bestandteil, zeile, p_typ, p_we
 
 
 
+
+
+
+
+###############################################################################################################
+###############################################################################################################
+#### Data Analysis ############################################################################################
+###############################################################################################################
+###############################################################################################################
+
+
+###############################################################################################################
+#### Statistische Tests für Inkonsistenz ######################################################################
+###############################################################################################################
+
+#### Hilfsfunktionen ###########################################################################################
+
+# Daten für Conditions zum Plotten vorbereiten
+prepare_plot_data <- function(conditions, levels, labels) {
+  
+  salienz_reshaped %>%
+    filter(Condition %in% conditions) %>%
+    drop_na(Mittelwert_Inkonsistenz) %>%
+    mutate(
+      Condition = factor(
+        Condition,
+        levels = levels,
+        labels = labels
+      )
+    )
+}
+
+
+# Daten für zwei Conditions für gepaarte Tests vorbereiten
+prepare_paired_data <- function(condition1, condition2) {
+  
+  salienz_reshaped %>%
+    filter(Condition %in% c(condition1, condition2)) %>%
+    select(number, Condition, Mittelwert_Inkonsistenz) %>%
+    pivot_wider(
+      names_from = Condition,
+      values_from = Mittelwert_Inkonsistenz
+    ) %>%
+    drop_na(all_of(c(condition1, condition2)))
+}
+
+
+# Box und Density Plots erstellen
+plot_box_density <- function(data, farben, subtitle) {
+  
+  # Boxplot
+  boxplot <- ggplot(
+    data,
+    aes(
+      x = Condition,
+      y = Mittelwert_Inkonsistenz,
+      fill = Condition
+    )
+  ) +
+    geom_boxplot() +
+    scale_fill_manual(values = farben) +
+    labs(
+      title = "Boxplot der Inkonsistenzbewertung",
+      subtitle = subtitle,
+      x = "Condition",
+      y = "Wahrgenommene stilistische Inkonsistenz"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    )
+  
+  speichere_grafik(
+    boxplot,
+    paste0("Boxplot_Inkonsistenz_", subtitle)
+  )
+  print(boxplot)
+  
+  # Density Plot
+  density_plot <- ggplot(
+    data,
+    aes(
+      x = Mittelwert_Inkonsistenz,
+      color = Condition
+    )
+  ) +
+    geom_density(linewidth = 1) +
+    scale_color_manual(values = farben) +
+    labs(
+      title = "Density Plot der Inkonsistenzbewertung",
+      subtitle = subtitle,
+      x = "Wahrgenommene stilistische Inkonsistenz",
+      y = "Dichte",
+      color = "Condition"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    )
+  
+  speichere_grafik(
+    density_plot,
+    paste0("Density_Inkonsistenz_", subtitle)
+  )
+  print(density_plot)
+}
+
+
+# Deskriptive Kennwerte erstellen
+deskriptive_kennwerte <- function(data) {
+  
+  data %>%
+    group_by(Condition) %>%
+    summarise(
+      n = n(),
+      Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      Mittelwert = mean(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      SD = sd(Mittelwert_Inkonsistenz, na.rm = TRUE)
+    )
+}
+
+
+# Normalverteilung graphisch prüfen
+plot_differenz <- function(data, subtitle) {
+  
+  plot <- ggplot(
+    data,
+    aes(x = Differenz_Inkonsistenz)
+  ) +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
+    labs(
+      title = "Density Plot der Differenzwerte",
+      subtitle = subtitle,
+      x = "Differenz der Inkonsistenzbewertung",
+      y = "Dichte"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    )
+  
+  speichere_grafik(
+    plot,
+    paste0("Density_Differenzwerte_", subtitle)
+  )
+  
+  plot
+}
+
+
+###############################################################################################################
+#### Modell Inkonsistenz: Jacke-stark-dezentral vs Schuh-stark-dezentral ######################################
+# DV: Stilistsiche Inkonsistenz ###############################################################################
+# IV: Conditions/ Outfits (Groß vs klein -> Kategorisch 2 Ausprägungen) #######################################
+# Within-Subjects daher dependent sample ######################################################################
+# -> Dependent/Gepaarter-t-Test ###############################################################################
+###############################################################################################################
+
+# Daten für die beiden Conditions auswählen
+plot_groesse <- prepare_plot_data(
+  conditions = c(
+    "Jacke-stark-dezentral",
+    "Schuh-stark-dezentral"
+  ),
+  levels = c(
+    "Schuh-stark-dezentral",
+    "Jacke-stark-dezentral"
+  ),
+  labels = c(
+    "Schuh stark dezentral",
+    "Jacke stark dezentral"
+  )
+)
+
+# Box und Density erstellen
+plot_box_density(
+  plot_groesse,
+  farben = c(
+    "Schuh stark dezentral" = "#EED5B7",
+    "Jacke stark dezentral" = "#CDAA7D"
+  ),
+  subtitle = "Großes vs. kleines stilistisch abweichendes Produkt"
+)
+
+# Deskriptive Kennwerte
+deskriptiv_groesse <- deskriptive_kennwerte(plot_groesse)
+deskriptiv_groesse
+
+# Daten für die beiden Conditions auswählen
+inkonsistenz_groesse <- prepare_paired_data(
+  "Jacke-stark-dezentral",
+  "Schuh-stark-dezentral"
+)
+
+# Differenzwert bilden:
+# positive Werte = Jacke wurde inkonsistenter bewertet als Schuh
+inkonsistenz_groesse <- inkonsistenz_groesse %>%
+  mutate(
+    Differenz_Inkonsistenz =
+      `Jacke-stark-dezentral` -
+      `Schuh-stark-dezentral`
+  )
+
+# Anzahl vollständiger Paare kontrollieren
+nrow(inkonsistenz_groesse)
+
+# Normalverteilung graphisch prüfen
+plot_differenz(
+  inkonsistenz_groesse,
+  "Jacke stark dezentral − Schuh stark dezentral"
+)
+
+# Normalverteilung mit Shapiro-Wilk prüfen
+# H0: Die Differenzwerte sind normalverteilt
+# H1: Die Differenzwerte sind nicht normalverteilt
+shapiro_auto_01 <- shapiro.test(
+  inkonsistenz_groesse$Differenz_Inkonsistenz
+)
+speichere_p_werte(shapiro_auto_01, "shapiro_auto_01")
+shapiro_auto_01
+# p > 0.05 -> H0 nicht verwerfen also keine statistisch signifikante Abweichung von der Normalverteilung
+
+# Normalverteilungsannahme ist erfüllt, gepaarter t-Test ist okkk!
+t_test_groesse <- t.test(
+  inkonsistenz_groesse$`Jacke-stark-dezentral`,
+  inkonsistenz_groesse$`Schuh-stark-dezentral`,
+  paired = TRUE,
+  alternative = "greater"
+)
+speichere_p_werte(t_test_groesse, "t_test_groesse")
+t_test_groesse
+
+# p < 0.05 -> H0 verwerfen:
+# physisch groß wird statistsich signifikant inkonsistenter wahrgenommen
+
+
+
+###############################################################################################################
+#### Modell Inkonsistenz: Jacke-stark-zentral vs Jacke-stark-dezentral ########################################
+# DV: Stilistsiche Inkonsistenz ###############################################################################
+# IV: Conditions/ Outfits (Zentral vs dezentral -> Kategorisch 2 Ausprägungen) ################################
+# Within-Subjects daher dependent sample ######################################################################
+# -> Dependent-t-Test ##########################################################################################
+###############################################################################################################
+
+# Daten für die beiden Conditions auswählen
+plot_position <- prepare_plot_data(
+  conditions = c(
+    "Jacke-stark-zentral",
+    "Jacke-stark-dezentral"
+  ),
+  levels = c(
+    "Jacke-stark-dezentral",
+    "Jacke-stark-zentral"
+  ),
+  labels = c(
+    "Jacke stark dezentral",
+    "Jacke stark zentral"
+  )
+)
+
+inkonsistenz_position <- prepare_paired_data(
+  "Jacke-stark-zentral",
+  "Jacke-stark-dezentral"
+)
+
+# Box und Density Plots erstellen
+plot_box_density(
+  plot_position,
+  farben = c(
+    "Jacke stark dezentral" = "#EED5B7",
+    "Jacke stark zentral" = "#CDAA7D"
+  ),
+  subtitle = "Zentrale vs. dezentrale Positionierung"
+)
+
+# Deskriptive Kennwerte erstellen
+deskriptiv_position <- deskriptive_kennwerte(plot_position)
+deskriptiv_position
+
+# Differenzwert bilden:
+# positive Werte = zentrale Jacke wurde inkonsistenter bewertet
+# als dezentrale Jacke
+inkonsistenz_position <- inkonsistenz_position %>%
+  mutate(
+    Differenz_Inkonsistenz =
+      `Jacke-stark-zentral` -
+      `Jacke-stark-dezentral`
+  )
+
+# Anzahl vollständiger Paare kontrollieren
+nrow(inkonsistenz_position)
+
+# Normalverteilung graphisch prüfen
+plot_differenz(
+  inkonsistenz_position,
+  "Jacke stark zentral − Jacke stark dezentral"
+)
+
+# Normalverteilung mit Shapiro-Wilk prüfen
+# H0: Die Differenzwerte sind normalverteilt
+# H1: Die Differenzwerte sind nicht normalverteilt
+shapiro_auto_02 <- shapiro.test(
+  inkonsistenz_position$Differenz_Inkonsistenz
+)
+speichere_p_werte(shapiro_auto_02, "shapiro_auto_02")
+shapiro_auto_02
+# p < 0.05 -> H0 verwerfen also kann man nicht sagen,
+# dass keine statistisch signifikante Abweichung von der Normalverteilung vorliegt
+
+# -> Wilcoxon-Vorzeichen-Rang-Test durchgeführt
+wilcoxon_position <- wilcox.test(
+  inkonsistenz_position$`Jacke-stark-zentral`,
+  inkonsistenz_position$`Jacke-stark-dezentral`,
+  paired = TRUE,
+  alternative = "greater",
+  exact = FALSE
+)
+speichere_p_werte(wilcoxon_position, "wilcoxon_position")
+wilcoxon_position
+
+
+
+###############################################################################################################
+#### Modell Inkonsistenz: Jacke-stark-dezentral vs Jacke-schwach-dezentral ####################################
+# DV: Stilistsiche Inkonsistenz ###############################################################################
+# IV: Conditions/ Outfits (Stark vs schwach -> Kategorisch 2 Ausprägungen) ####################################
+# Within-Subjects daher dependent sample ######################################################################
+# -> Dependent-t-Test ##########################################################################################
+###############################################################################################################
+
+# Daten für die beiden Conditions auswählen
+plot_staerke <- prepare_plot_data(
+  conditions = c(
+    "Jacke-stark-dezentral",
+    "Jacke-leicht-dezentral"
+  ),
+  levels = c(
+    "Jacke-leicht-dezentral",
+    "Jacke-stark-dezentral"
+  ),
+  labels = c(
+    "Jacke leicht dezentral",
+    "Jacke stark dezentral"
+  )
+)
+
+inkonsistenz_staerke <- prepare_paired_data(
+  "Jacke-stark-dezentral",
+  "Jacke-leicht-dezentral"
+)
+
+# Box und Density Plots erstellen
+plot_box_density(
+  plot_staerke,
+  farben = c(
+    "Jacke leicht dezentral" = "#EED5B7",
+    "Jacke stark dezentral" = "#CDAA7D"
+  ),
+  subtitle = "Leichte vs. starke stilistische Abweichung"
+)
+
+# Deskriptive Kennwerte erstellen
+deskriptiv_staerke_zwei <- deskriptive_kennwerte(plot_staerke)
+deskriptiv_staerke_zwei
+
+# Differenzwert bilden:
+# positive Werte = stark abweichende Jacke wurde inkonsistenter bewertet
+# als leicht abweichende Jacke
+inkonsistenz_staerke <- inkonsistenz_staerke %>%
+  mutate(
+    Differenz_Inkonsistenz =
+      `Jacke-stark-dezentral` -
+      `Jacke-leicht-dezentral`
+  )
+
+# Anzahl vollständiger Paare kontrollieren
+nrow(inkonsistenz_staerke)
+
+# Normalverteilung graphisch prüfen
+plot_differenz(
+  inkonsistenz_staerke,
+  "Jacke stark dezentral − Jacke leicht dezentral"
+)
+
+# Normalverteilung mit Shapiro-Wilk prüfen
+# H0: Die Differenzwerte sind normalverteilt
+# H1: Die Differenzwerte sind nicht normalverteilt
+shapiro_auto_03 <- shapiro.test(
+  inkonsistenz_staerke$Differenz_Inkonsistenz
+)
+speichere_p_werte(shapiro_auto_03, "shapiro_auto_03")
+shapiro_auto_03
+# p > 0.05 -> H0 nicht verwerfen also keine statistisch signifikante Abweichung von der Normalverteilung
+
+# Normalverteilungsannahme ist erfüllt, gepaarter t-Test ok!
+t_test_staerke <- t.test(
+  inkonsistenz_staerke$`Jacke-stark-dezentral`,
+  inkonsistenz_staerke$`Jacke-leicht-dezentral`,
+  paired = TRUE,
+  alternative = "greater"
+)
+speichere_p_werte(t_test_staerke, "t_test_staerke")
+t_test_staerke
+
+
+
+###############################################################################################################
+#### Zusätzliches Modell Inkonsistenz: Min Jacke vs schwach Jacke vs stark Jacke ##############################
+# DV: Stilistsiche Inkonsistenz ###############################################################################
+# IV: Conditions/ Outfits (Stark vs schwach vs gar nicht -> Kategorisch 3 Ausprägungen) #######################
+# Within-Subjects daher dependent sample ######################################################################
+# -> One-way repeated measures ANOVA ##########################################################################
+###############################################################################################################
+
+# die drei Conditions auswählen
+inkonsistenz_anova_staerke <- prepare_plot_data(
+  conditions = c(
+    "Min-Baseline",
+    "Jacke-leicht-dezentral",
+    "Jacke-stark-dezentral"
+  ),
+  levels = c(
+    "Min-Baseline",
+    "Jacke-leicht-dezentral",
+    "Jacke-stark-dezentral"
+  ),
+  labels = c(
+    "Jacke minimalistisch dezentral",
+    "Jacke leicht dezentral",
+    "Jacke stark dezentral"
+  )
+)
+
+# Box und Density Plots erstellen
+plot_box_density(
+  inkonsistenz_anova_staerke,
+  farben = c(
+    "Jacke minimalistisch dezentral" = "#FFF5E6",
+    "Jacke leicht dezentral" = "#EED5B7",
+    "Jacke stark dezentral" = "#CDAA7D"
+  ),
+  subtitle = "Baseline vs. leichte vs. starke stilistische Abweichung"
+)
+
+# Deskriptive Kennwerte erstellen
+deskriptiv_staerke <- deskriptive_kennwerte(
+  inkonsistenz_anova_staerke
+)
+deskriptiv_staerke
+
+# Repeated-Measures-ANOVA zunächst schätzen,
+# damit anschließend die Residuen geprüft werden können
+anova_staerke <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Condition",
+  data = inkonsistenz_anova_staerke
+)
+speichere_p_werte(anova_staerke, "anova_staerke")
+
+# Shapiro Wilk Test
+residuen_staerke <- residuals(anova_staerke$lm)
+shapiro_auto_04 <- shapiro.test(residuen_staerke)
+speichere_p_werte(shapiro_auto_04, "shapiro_auto_04")
+shapiro_auto_04
+
+# p < 0.05 -> H0 verwerfen -> Friedman-Test
+
+# Friedman-Test
+friedman_staerke <- friedman.test(
+  Mittelwert_Inkonsistenz ~ Condition | number,
+  data = inkonsistenz_anova_staerke
+)
+speichere_p_werte(friedman_staerke, "friedman_staerke")
+friedman_staerke
+
+# H0: Inkonsistenz unterscheidet sich zwischen den dreien nicht
+# p < 0.05 H0 verwerfen
+
+# Um festzustellen, zwischen welchen Bedingungen Unterschiede bestehen,
+# werden paarweise Wilcoxon-Vorzeichen-Rang-Tests durchgeführt mit Holm Korrektur
+paarweise_staerke <- inkonsistenz_anova_staerke %>%
+  pairwise_wilcox_test(
+    Mittelwert_Inkonsistenz ~ Condition,
+    paired = TRUE,
+    p.adjust.method = "holm"
+  )
+paarweise_staerke
+speichere_p_werte(paarweise_staerke, "paarweise_staerke")
+
+# keine Abweichung -> leichte Abweichung -> starke Abweichung
+# führt zu einer zunehmend höheren wahrgenommenen stilistischen Inkonsistenz.
+
+
+
+###############################################################################################################
+#### Zusätzliches Modell Inkonsistenz: Min Schuh vs stark Hiphop Schuh ########################################
+# DV: Stilistsiche Inkonsistenz ###############################################################################
+# IV: Conditions/ Outfits (Stark vs gar nicht -> Kategorisch 2 Ausprägungen) ##################################
+# Within-Subjects daher dependent sample ######################################################################
+# -> Dependent-t-Test ##########################################################################################
+###############################################################################################################
+
+# Daten für die beiden Conditions auswählen
+plot_schuh <- prepare_plot_data(
+  conditions = c(
+    "Min-Baseline",
+    "Schuh-stark-dezentral"
+  ),
+  levels = c(
+    "Min-Baseline",
+    "Schuh-stark-dezentral"
+  ),
+  labels = c(
+    "Minimalistischer Schuh",
+    "Starker Hip-Hop-Schuh"
+  )
+)
+
+inkonsistenz_schuh <- prepare_paired_data(
+  "Min-Baseline",
+  "Schuh-stark-dezentral"
+)
+
+# Box und Density Plots erstellen
+plot_box_density(
+  plot_schuh,
+  farben = c(
+    "Minimalistischer Schuh" = "#EED5B7",
+    "Starker Hip-Hop-Schuh" = "#CDAA7D"
+  ),
+  subtitle = "Minimalistische Baseline vs. stark abweichender Hip-Hop-Schuh"
+)
+
+# Deskriptive Kennwerte erstellen
+deskriptiv_schuh <- deskriptive_kennwerte(plot_schuh)
+deskriptiv_schuh
+
+# Differenzwert bilden:
+# positive Werte = stark abweichender Hip-Hop-Schuh wurde
+# inkonsistenter bewertet als die minimalistische Baseline
+inkonsistenz_schuh <- inkonsistenz_schuh %>%
+  mutate(
+    Differenz_Inkonsistenz =
+      `Schuh-stark-dezentral` -
+      `Min-Baseline`
+  )
+
+# Anzahl vollständiger Paare kontrollieren
+nrow(inkonsistenz_schuh)
+
+# Normalverteilung graphisch prüfen
+plot_differenz(
+  inkonsistenz_schuh,
+  "Schuh stark dezentral − Min-Baseline"
+)
+
+# Normalverteilung mit Shapiro-Wilk prüfen
+# H0: Die Differenzwerte sind normalverteilt
+# H1: Die Differenzwerte sind nicht normalverteilt
+shapiro_schuh <- shapiro.test(
+  inkonsistenz_schuh$Differenz_Inkonsistenz
+)
+speichere_p_werte(shapiro_schuh, "shapiro_schuh")
+shapiro_schuh
+
+# p < 0.05 -> H0 verwerfen:
+# statistisch signifikante Abweichung von der Normalverteilung
+
+# -> Wilcoxon-Vorzeichen-Rang-Test
+wilcoxon_schuh <- wilcox.test(
+  inkonsistenz_schuh$`Schuh-stark-dezentral`,
+  inkonsistenz_schuh$`Min-Baseline`,
+  paired = TRUE,
+  alternative = "greater",
+  exact = FALSE
+)
+speichere_p_werte(wilcoxon_schuh, "wilcoxon_schuh")
+wilcoxon_schuh
+# p < 0.05
+# Damit wird H₀ verworfen. Der stark stilistisch abweichende Hip-Hop-Schuh wird
+# signifikant inkonsistenter wahrgenommen als der minimalistische Baseline-Schuh
+
+
+
+###############################################################################################################
+#### Power-Analyse / Fehler 1. und 2. Grades ##################################################################
+###############################################################################################################
+
+alpha <- 0.05
+
+#### Hilfsfunktion 1: Gepaarter t-Test
+power_t_paired <- function(differenz, modell, alpha = 0.05) {
+  differenz <- na.omit(differenz)
+  # Cohen's dz
+  d <- mean(differenz) / sd(differenz)
+  # Power
+  power <- pwr.t.test(
+    n = length(differenz),
+    d = d,
+    sig.level = alpha,
+    type = "paired",
+    alternative = "greater"
+  )$power
+  data.frame(
+    Modell = modell,
+    Test = "Gepaarter t-Test",
+    n = length(differenz),
+    Cohen_dz = d,
+    Alpha = alpha,
+    Power = power,
+    Beta = 1 - power)}
+
+#### Hilfsfunktion 2: Wilcoxon
+power_wilcoxon <- function(x, y, modell,
+                           alpha = 0.05,
+                           B = 5000,
+                           seed = 123) {
+  # Nur vollständige Paare
+  komplett <- complete.cases(x, y)
+  x <- x[komplett]
+  y <- y[komplett]
+  n <- length(x)
+  set.seed(seed)
+  p_werte <- replicate(
+    B,
+    {index <- sample(
+      seq_len(n),
+      size = n,
+      replace = TRUE)
+    wilcox.test(
+      x[index],
+      y[index],
+      paired = TRUE,
+      alternative = "greater",
+      exact = FALSE
+    )$p.value})
+  power <- mean(p_werte < alpha, na.rm = TRUE)
+  data.frame(
+    Modell = modell,
+    Test = "Wilcoxon",
+    n = n,
+    Cohen_dz = NA,
+    Alpha = alpha,
+    Power = power,
+    Beta = 1 - power)}
+
+#### Hilfsfunktion 3: Friedman
+power_friedman_test <- function(matrix,
+                                modell,
+                                alpha = 0.05,
+                                B = 1000,
+                                seed = 123) {
+  matrix <- matrix[complete.cases(matrix), ]
+  n <- nrow(matrix)
+  set.seed(seed)
+  p_werte <- replicate(
+    B,
+    {
+      index <- sample(
+        seq_len(n),
+        size = n,
+        replace = TRUE )
+      friedman.test(
+        matrix[index, , drop = FALSE]
+      )$p.value } )
+  power <- mean(p_werte < alpha)
+  data.frame(
+    Modell = modell,
+    Test = "Friedman",
+    n = n,
+    Cohen_dz = NA,
+    Alpha = alpha,
+    Power = power,
+    Beta = 1 - power)}
+
+#### Fall 1: Größe ############################################################################################
+power_groesse <- power_t_paired(
+  inkonsistenz_groesse$Differenz_Inkonsistenz,
+  "Größe: Jacke vs. Schuh")
+
+#### Fall 2: Position #########################################################################################
+power_position <- power_wilcoxon(
+  inkonsistenz_position$`Jacke-stark-zentral`,
+  inkonsistenz_position$`Jacke-stark-dezentral`,
+  "Position: zentral vs. dezentral")
+
+#### Fall 3: Stärke ###########################################################################################
+power_staerke <- power_t_paired(
+  inkonsistenz_staerke$Differenz_Inkonsistenz,
+  "Stärke: stark vs. leicht")
+
+#### Fall 4: Baseline vs. leicht vs. stark ####################################################################
+friedman_matrix <- inkonsistenz_anova_staerke %>%
+  select(
+    number,
+    Condition,
+    Mittelwert_Inkonsistenz
+  ) %>%
+  pivot_wider(
+    names_from = Condition,
+    values_from = Mittelwert_Inkonsistenz
+  ) %>%
+  select(
+    `Jacke minimalistisch dezentral`,
+    `Jacke leicht dezentral`,
+    `Jacke stark dezentral`
+  ) %>%
+  drop_na() %>%
+  as.matrix()
+power_friedman <- power_friedman_test(
+  friedman_matrix,
+  "Stärke: Baseline vs. leicht vs. stark")
+
+#### Fall 5: Baseline vs. starker Hip-Hop-Schuh ###############################################################
+power_schuh <- power_wilcoxon(
+  inkonsistenz_schuh$`Schuh-stark-dezentral`,
+  inkonsistenz_schuh$`Min-Baseline`,
+  "Schuh: Baseline vs. Hip-Hop-Schuh")
+
+#### Übersicht #################################################################################################
+power_uebersicht <- bind_rows(
+  power_groesse,
+  power_position,
+  power_staerke,
+  power_friedman,
+  power_schuh
+) %>%
+  mutate(
+    Alpha_Prozent = round(Alpha * 100, 2),
+    Power_Prozent = round(Power * 100, 2),
+    Beta_Prozent = round(Beta * 100, 2),
+    Cohen_dz = round(Cohen_dz, 3))
+power_uebersicht
+
+
+
+
+
+#############################################################################################################
+#### Unterschiedliche Gruppen ###############################################################################
+#############################################################################################################
+
+
+#### Geschlechtsunterschiede ################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Position des stilistisch
+# abweichenden Produkts auf die wahrgenommene Inkonsistenz
+# zwischen Frauen und Männern?
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+# Faktor 1: Position
+# zentral vs. dezentral
+# -> Within-Subjects-Faktor, da jede Person beide Outfits bewertet hat
+#
+# Faktor 2: Geschlecht
+# weiblich vs. männlich
+# -> Between-Subjects-Faktor, da unterschiedliche Personen
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+# Für unsere Fragestellung ist insbesondere der
+# Interaktionseffekt Position * Geschlecht relevant.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+# Nur die beiden Outfits auswählen, die sich hinsichtlich
+# der Position unterscheiden.
+#
+# Gleichzeitig werden nur Frauen und Männer betrachtet.
+# Der Code funktioniert sowohl dann, wenn Geschlecht noch
+# mit 1/2 codiert ist, als auch wenn die Labels bereits vorhanden sind.
+
+inkonsistenz_position_geschlecht <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Jacke-stark-dezentral",
+      "Jacke-stark-zentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Geschlecht beschriften
+    Geschlecht = case_when(
+      as.character(Geschlecht) %in% c("1", "weiblich") ~ "weiblich",
+      as.character(Geschlecht) %in% c("2", "männlich") ~ "männlich",
+      TRUE ~ NA_character_
+    ),
+    
+    # Aus Condition nur den interessierenden Faktor Position bilden
+    Position = case_when(
+      Condition == "Jacke-stark-dezentral" ~ "dezentral",
+      Condition == "Jacke-stark-zentral" ~ "zentral"
+    )
+  ) %>%
+  
+  # Divers, keine Angabe und fehlende Werte werden für
+  # genau diesen Vergleich nicht berücksichtigt
+  filter(
+    !is.na(Geschlecht),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  
+  mutate(
+    Geschlecht = factor(
+      Geschlecht,
+      levels = c(
+        "weiblich",
+        "männlich"
+      )
+    ),
+    
+    Position = factor(
+      Position,
+      levels = c(
+        "dezentral",
+        "zentral"
+      )
+    )
+  )
+
+
+# Nur Personen behalten, für die Bewertungen
+# für BEIDE Positionen vorhanden sind
+
+inkonsistenz_position_geschlecht <-
+  inkonsistenz_position_geschlecht %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Position) == 2
+  ) %>%
+  ungroup()
+
+
+# Kontrolle:
+# Jede Person sollte jetzt genau zwei Zeilen besitzen
+
+table(
+  inkonsistenz_position_geschlecht$number
+)
+
+
+# Anzahl Frauen und Männer anzeigen
+# distinct(), weil jede Person zweimal im Datensatz vorkommt
+
+inkonsistenz_position_geschlecht %>%
+  distinct(
+    number,
+    Geschlecht
+  ) %>%
+  count(
+    Geschlecht
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: dezentrale Position ####
+
+boxplot_position_dezentral <-
+  inkonsistenz_position_geschlecht %>%
+  filter(
+    Position == "dezentral"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(
+    values = c(
+      "weiblich" = "#EED5B7",
+      "männlich" = "#CDAA7D")) +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Jacke stark dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(
+      hjust = 0.5
+    ),
+    plot.subtitle = element_text(
+      hjust = 0.5
+    )
+  )
+speichere_grafik(boxplot_position_dezentral, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_position_dezentral
+)
+
+
+#### Boxplot 2: zentrale Position ####
+
+boxplot_position_zentral <-
+  inkonsistenz_position_geschlecht %>%
+  filter(
+    Position == "zentral"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(
+    values = c(
+      "weiblich" = "#EED5B7",
+      "männlich" = "#CDAA7D")) +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Jacke stark zentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(
+      hjust = 0.5
+    ),
+    plot.subtitle = element_text(
+      hjust = 0.5
+    )
+  )
+speichere_grafik(boxplot_position_zentral, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_position_zentral
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_position_geschlecht <-
+  inkonsistenz_position_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Position
+  ) %>%
+  summarise(
+    n = n(),
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+deskriptiv_position_geschlecht
+
+
+# Deskriptiv zeigt sich bei Frauen ein stärkerer Unterschied
+# zwischen der dezentralen und zentralen Positionierung als bei Männern.
+#
+# Bei Frauen steigt die mittlere wahrgenommene Inkonsistenz
+# von M = 3.17 (SD = 0.89) bei dezentraler Positionierung
+# auf M = 3.73 (SD = 0.93) bei zentraler Positionierung.
+# Dies entspricht einer mittleren Zunahme von 0.56 Skalenpunkten.
+#
+# Bei Männern steigt die mittlere wahrgenommene Inkonsistenz
+# dagegen nur von M = 3.01 (SD = 0.97) auf
+# M = 3.21 (SD = 1.00), also um 0.20 Skalenpunkte.
+#
+# Der Positionseffekt fällt damit deskriptiv bei Frauen
+# um etwa 0.36 Skalenpunkte stärker aus als bei Männern.
+#
+# Auch die Mediane weisen auf dieses Muster hin:
+# Bei Frauen steigt der Median von 3.00 auf 3.67,
+# während er bei Männern in beiden Bedingungen bei 3.00 liegt.
+#
+# Dies deutet deskriptiv auf einen möglichen Interaktionseffekt
+# zwischen Position und Geschlecht hin.
+#
+# Ob dieser Interaktionseffekt statistisch signifikant ist,
+# kann aus den deskriptiven Kennwerten jedoch noch nicht
+# geschlossen werden. Dies wird anschließend mit der
+# Factorial Mixed ANOVA geprüft.
+
+
+
+#############################################################################################################
+#### Annahmen Factorial Mixed ANOVA #########################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### 1. Normalverteilung #####################################################################################
+#############################################################################################################
+
+# Mixed ANOVA zunächst schätzen,
+# damit die Residuen geprüft werden können
+
+anova_position_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Position",
+  between = "Geschlecht",
+  data = inkonsistenz_position_geschlecht
+)
+speichere_p_werte(anova_position_geschlecht, "anova_position_geschlecht")
+
+
+# Residuen extrahieren
+
+residuen_position_geschlecht <- residuals(
+  anova_position_geschlecht$lm
+)
+
+
+# Normalverteilung graphisch prüfen
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_position_geschlecht)
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Position × Geschlecht",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      plot.subtitle = element_text(
+        hjust = 0.5
+      )
+    ),
+  "Density Plot der Residuen"
+)
+
+
+# Shapiro-Wilk-Test
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_05 <- shapiro.test(
+  as.numeric(residuen_position_geschlecht)
+)
+speichere_p_werte(shapiro_auto_05, "shapiro_auto_05")
+shapiro_auto_05
+
+# Interpretation:
+#
+# p < 0.05:
+# H0 verwerfen
+# -> signifikante Abweichung von der Normalverteilung
+# 1. Normalverteilung der Residuen
+#
+# Shapiro-Wilk:
+# W = 0.98779, p = 0.02554
+#
+# Da p < 0.05, wird H0 verworfen.
+# Die Residuen weichen statistisch signifikant
+# von einer Normalverteilung ab.
+#
+# Die Normalverteilungsannahme ist somit formal nicht erfüllt.
+# Aber W ist fast =1 also Abweichung eher gering ist. Außerdem hast du mit 131 Personen eine recht große Stichprobe und mit 76 Frauen vs. 55 Männern keine extrem ungleichen Gruppen. Der Shapiro-Wilk-Test kann bei solchen Stichprobengrößen bereits relativ kleine Abweichungen signifikant erkennen.
+# Deshalb würde ich die Mixed ANOVA nicht allein wegen p = 0,0255 verwerfen, sondern den Density-Plot bzw. besser zusätzlich einen QQ-Plot betrachten.
+
+
+# QQ-Plot zur zusätzlichen Beurteilung
+# der Normalverteilung der Residuen
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_position_geschlecht)
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "Normalverteilung der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Position × Geschlecht",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      plot.subtitle = element_text(
+        hjust = 0.5
+      )
+    ),
+  "Normalverteilung der Residuen"
+)
+
+# Graphische Prüfung:
+# Im QQ-Plot liegen die Residuen im mittleren Bereich
+# weitgehend auf der Referenzlinie.
+# Abweichungen zeigen sich vor allem in den Randbereichen.
+#
+# Insgesamt liegt damit eine eher geringe Abweichung
+# von der Normalverteilung vor. Wir behalten also den Factorial Mixed ANOVA Test bei.
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+# Levene-Test für die dezentrale Position
+
+levene_auto_01 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_position_geschlecht %>%
+    filter(
+      Position == "dezentral"
+    )
+)
+speichere_p_werte(levene_auto_01, "levene_auto_01")
+levene_auto_01
+
+
+# Levene-Test für die zentrale Position
+
+levene_auto_02 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_position_geschlecht %>%
+    filter(
+      Position == "zentral"
+    )
+)
+speichere_p_werte(levene_auto_02, "levene_auto_02")
+levene_auto_02
+
+# 2. Varianzhomogenität
+#
+# Dezentrale Position:
+# Levene-Test: F = 1.5436, p = 0.2163
+#
+# Zentrale Position:
+# Levene-Test: F = 0.899, p = 0.3448
+#
+# Da beide p-Werte > 0.05 sind,
+# wird H0 jeweils nicht verworfen.
+#
+# Die Varianzhomogenität zwischen Frauen und Männern
+# ist somit für beide Positionen gegeben.
+# Wir behalten also den Factorial Mixed ANOVA Test wirklich bei.
+
+
+#############################################################################################################
+#### Mixed ANOVA berechnen ##################################################################################
+#############################################################################################################
+
+
+anova_position_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Position",
+  between = "Geschlecht",
+  data = inkonsistenz_position_geschlecht
+)
+speichere_p_werte(anova_position_geschlecht, "anova_position_geschlecht")
+
+# ANOVA-Tabelle anzeigen
+anova_position_geschlecht
+
+# Interpretation der Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt Geschlecht:
+#
+# F(1, 129) = 6.14, p = .015, ges = .032
+#
+# Da p < .05, liegt ein signifikanter Haupteffekt
+# des Geschlechts vor.
+#
+# Frauen bewerteten die beiden Outfits insgesamt
+# inkonsistenter als Männer.
+#
+#
+# 2. Haupteffekt Position:
+#
+# F(1, 129) = 16.26, p < .001, ges = .038
+#
+# Da p < .05, liegt ein signifikanter Haupteffekt
+# der Position vor.
+#
+# Die Inkonsistenzbewertung unterscheidet sich somit
+# signifikant zwischen zentraler und dezentraler
+# Positionierung.
+#
+#
+# 3. Interaktion Geschlecht x Position:
+#
+# F(1, 129) = 3.85, p = .052, ges = .009
+#
+# Da p > .05, ist der Interaktionseffekt nicht
+# statistisch signifikant.
+#
+# Somit gibt es keinen statistisch signifikanten
+# Hinweis darauf, dass sich der Einfluss der Position
+# auf die wahrgenommene Inkonsistenz zwischen
+# Frauen und Männern unterscheidet.
+#
+# Deskriptiv fällt der Positionseffekt bei Frauen
+# allerdings größer aus:
+#
+# Frauen:
+# M_dezentral = 3.17
+# M_zentral   = 3.73
+# Differenz   = 0.56
+#
+# Männer:
+# M_dezentral = 3.01
+# M_zentral   = 3.21
+# Differenz   = 0.20
+#
+# Der deskriptiv stärkere Positionseffekt bei Frauen
+# erreicht mit p = .052 jedoch knapp nicht das
+# festgelegte Signifikanzniveau von alpha = .05.
+
+
+
+
+
+#############################################################################################################
+#### Geschlechtsunterschiede: Größe #########################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Größe des stilistisch
+# abweichenden Produkts auf die wahrgenommene Inkonsistenz
+# zwischen Frauen und Männern?
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+# Faktor 1: Größe
+# klein vs. groß
+# -> Within-Subjects-Faktor, da jede Person beide Outfits bewertet hat
+#
+# Klein:
+# Schuh-stark-dezentral
+#
+# Groß:
+# Jacke-stark-dezentral
+#
+# Faktor 2: Geschlecht
+# weiblich vs. männlich
+# -> Between-Subjects-Faktor
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+# Für unsere Fragestellung ist insbesondere der
+# Interaktionseffekt Groesse * Geschlecht relevant.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+# Nur die beiden Outfits auswählen, die sich hinsichtlich
+# der Größe des stilistisch abweichenden Produkts unterscheiden.
+#
+# Beide Produkte sind stark stilistisch abweichend und dezentral positioniert.
+#
+# Gleichzeitig werden nur Frauen und Männer betrachtet.
+
+inkonsistenz_groesse_geschlecht <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Schuh-stark-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Geschlecht beschriften
+    Geschlecht = case_when(
+      as.character(Geschlecht) %in% c("1", "weiblich") ~ "weiblich",
+      as.character(Geschlecht) %in% c("2", "männlich") ~ "männlich",
+      TRUE ~ NA_character_
+    ),
+    
+    # Aus Condition den Faktor Größe bilden
+    Groesse = case_when(
+      Condition == "Schuh-stark-dezentral" ~ "klein",
+      Condition == "Jacke-stark-dezentral" ~ "gross"
+    )
+  ) %>%
+  
+  # Divers, keine Angabe und fehlende Werte werden
+  # für diesen Vergleich nicht berücksichtigt
+  filter(
+    !is.na(Geschlecht),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  
+  mutate(
+    Geschlecht = factor(
+      Geschlecht,
+      levels = c(
+        "weiblich",
+        "männlich"
+      )
+    ),
+    
+    Groesse = factor(
+      Groesse,
+      levels = c(
+        "klein",
+        "gross"
+      )
+    )
+  )
+
+
+# Nur Personen behalten, für die Bewertungen
+# für BEIDE Größenbedingungen vorhanden sind
+
+inkonsistenz_groesse_geschlecht <-
+  inkonsistenz_groesse_geschlecht %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Groesse) == 2
+  ) %>%
+  ungroup()
+
+
+# Kontrolle:
+# Jede Person sollte genau zwei Zeilen besitzen
+
+table(
+  inkonsistenz_groesse_geschlecht$number
+)
+
+
+# Anzahl Frauen und Männer anzeigen
+# distinct(), weil jede Person zweimal vorkommt
+
+inkonsistenz_groesse_geschlecht %>%
+  distinct(
+    number,
+    Geschlecht
+  ) %>%
+  count(
+    Geschlecht
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: kleines stilistisch abweichendes Produkt ####
+
+boxplot_groesse_klein <-
+  inkonsistenz_groesse_geschlecht %>%
+  filter(
+    Groesse == "klein"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_groesse_klein, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_groesse_klein
+)
+
+
+
+#### Boxplot 2: großes stilistisch abweichendes Produkt ####
+
+boxplot_groesse_gross <-
+  inkonsistenz_groesse_geschlecht %>%
+  filter(
+    Groesse == "gross"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Großes stilistisch abweichendes Produkt: Jacke stark dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_groesse_gross, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_groesse_gross
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_groesse_geschlecht <-
+  inkonsistenz_groesse_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Groesse
+  ) %>%
+  summarise(
+    n = n(),
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+deskriptiv_groesse_geschlecht
+
+
+# Interpretation:
+#
+# Deskriptiv zeigt sich sowohl bei Frauen als auch bei Männern
+# eine höhere wahrgenommene Inkonsistenz beim großen
+# stilistisch abweichenden Produkt als beim kleinen Produkt.
+#
+# Bei Frauen steigt die mittlere wahrgenommene Inkonsistenz
+# von M = 1.96 (SD = 0.73) beim kleinen stilistisch
+# abweichenden Produkt
+# auf M = 3.17 (SD = 0.89) beim großen stilistisch
+# abweichenden Produkt.
+#
+# Dies entspricht einer mittleren Zunahme
+# von 1.21 Skalenpunkten.
+#
+# Bei Männern steigt die mittlere wahrgenommene Inkonsistenz
+# von M = 2.20 (SD = 0.86) beim kleinen Produkt
+# auf M = 3.01 (SD = 0.97) beim großen Produkt.
+#
+# Dies entspricht einer mittleren Zunahme
+# von 0.81 Skalenpunkten.
+#
+# Der Größeneffekt fällt damit deskriptiv bei Frauen
+# um etwa 0.40 Skalenpunkte stärker aus als bei Männern.
+#
+# Beim kleinen stilistisch abweichenden Produkt liegt
+# der Mittelwert der Männer etwas über dem der Frauen
+# (M = 2.20 vs. M = 1.96).
+#
+# Beim großen stilistisch abweichenden Produkt liegt
+# dagegen der Mittelwert der Frauen etwas über dem der Männer
+# (M = 3.17 vs. M = 3.01).
+#
+# Die Mediane steigen in beiden Geschlechtsgruppen
+# von Md = 2.00 beim kleinen Produkt
+# auf Md = 3.00 beim großen Produkt.
+#
+# Insgesamt deutet das Mittelwertmuster deskriptiv
+# auf einen möglichen Interaktionseffekt
+# zwischen Größe und Geschlecht hin.
+#
+# Ob sich der Größeneffekt tatsächlich statistisch signifikant
+# zwischen Frauen und Männern unterscheidet,
+# wird anschließend mit der Factorial Mixed ANOVA geprüft.
+
+
+
+#############################################################################################################
+#### 1. Normalverteilung #####################################################################################
+#############################################################################################################
+
+
+# Mixed ANOVA zunächst schätzen,
+# damit die Residuen geprüft werden können
+
+anova_groesse_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Groesse",
+  between = "Geschlecht",
+  data = inkonsistenz_groesse_geschlecht
+)
+speichere_p_werte(anova_groesse_geschlecht, "anova_groesse_geschlecht")
+
+
+# Residuen extrahieren
+
+residuen_groesse_geschlecht <- residuals(
+  anova_groesse_geschlecht$lm
+)
+
+
+#### Density Plot der Residuen ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_groesse_geschlecht)
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × Geschlecht",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_06 <- shapiro.test(
+  as.numeric(residuen_groesse_geschlecht)
+)
+speichere_p_werte(shapiro_auto_06, "shapiro_auto_06")
+shapiro_auto_06
+
+
+# Interpretation:
+
+#
+# p < 0.05:
+# H0 verwerfen
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+# aber Da p < 0,05, ist die Normalverteilungsannahme formal verletzt. 
+# Allerdings liegt W = 0,9845 weiterhin sehr nahe an 1. Deshalb grafisch überprüft und sieht ganz gut aus
+
+
+#### QQ-Plot zur zusätzlichen graphischen Beurteilung ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_groesse_geschlecht)
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × Geschlecht",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# Levene-Test für das kleine stilistisch abweichende Produkt
+
+levene_auto_03 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_groesse_geschlecht %>%
+    filter(
+      Groesse == "klein"
+    )
+)
+speichere_p_werte(levene_auto_03, "levene_auto_03")
+levene_auto_03
+
+
+# Levene-Test für das große stilistisch abweichende Produkt
+
+levene_auto_04 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_groesse_geschlecht %>%
+    filter(
+      Groesse == "gross"
+    )
+)
+speichere_p_werte(levene_auto_04, "levene_auto_04")
+levene_auto_04
+
+
+# H0:
+# Die Varianzen von Frauen und Männern sind gleich.
+#
+# H1:
+# Die Varianzen von Frauen und Männern unterscheiden sich.
+#
+# Interpretation:
+#
+# p > 0.05:
+# H0 nicht verwerfen
+# -> Varianzhomogenität gegeben
+
+
+#############################################################################################################
+#### Mixed ANOVA berechnen ##################################################################################
+#############################################################################################################
+
+anova_groesse_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Groesse",
+  between = "Geschlecht",
+  data = inkonsistenz_groesse_geschlecht
+)
+speichere_p_werte(anova_groesse_geschlecht, "anova_groesse_geschlecht")
+
+# ANOVA-Tabelle anzeigen
+
+anova_groesse_geschlecht
+
+# Interpretation der Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt Geschlecht:
+#
+# F(1, 129) = 0.11, p = .741, ges < .001
+#
+# Da p > .05, liegt kein signifikanter Haupteffekt
+# des Geschlechts vor.
+#
+# Frauen und Männer unterscheiden sich über beide
+# Größenbedingungen hinweg insgesamt nicht signifikant
+# in ihrer wahrgenommenen stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Größe:
+#
+# F(1, 129) = 123.30, p < .001, ges = .255
+#
+# Da p < .05, liegt ein signifikanter Haupteffekt
+# der Größe vor.
+#
+# Das große stilistisch abweichende Produkt (Jacke)
+# wird insgesamt signifikant inkonsistenter wahrgenommen
+# als das kleine stilistisch abweichende Produkt (Schuh).
+#
+#
+# 3. Interaktion Geschlecht x Größe:
+#
+# F(1, 129) = 4.78, p = .031, ges = .013
+#
+# Da p < .05, liegt ein signifikanter Interaktionseffekt
+# zwischen Geschlecht und Größe vor.
+#
+# Der Einfluss der Größe des stilistisch abweichenden
+# Produkts auf die wahrgenommene Inkonsistenz
+# unterscheidet sich somit signifikant zwischen
+# Frauen und Männern.
+#
+# Deskriptiv zeigt sich:
+#
+# Frauen:
+# klein: M = 1.96
+# groß:  M = 3.17
+# Differenz = 1.21
+#
+# Männer:
+# klein: M = 2.20
+# groß:  M = 3.01
+# Differenz = 0.81
+#
+# Der Größeneffekt fällt damit bei Frauen
+# um etwa 0.40 Skalenpunkte stärker aus als bei Männern.
+#
+# Das Mittelwertmuster zeigt somit, dass Frauen
+# hinsichtlich ihrer Inkonsistenzbewertung stärker auf
+# die Veränderung von einem kleinen zu einem großen
+# stilistisch abweichenden Produkt reagieren als Männer.
+
+
+
+
+
+#############################################################################################################
+#### Geschlechtsunterschiede: Stärke ########################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Stärke der stilistischen
+# Produktabweichung auf die wahrgenommene Inkonsistenz
+# zwischen Frauen und Männern?
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+# Faktor 1: Stärke
+# leicht vs. stark
+# -> Within-Subjects-Faktor, da jede Person beide Outfits bewertet hat
+#
+# Leicht:
+# Jacke-leicht-dezentral
+#
+# Stark:
+# Jacke-stark-dezentral
+#
+# Faktor 2: Geschlecht
+# weiblich vs. männlich
+# -> Between-Subjects-Faktor
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+# Für unsere Fragestellung ist insbesondere der
+# Interaktionseffekt Staerke * Geschlecht relevant.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+# Nur die beiden Outfits auswählen, die sich hinsichtlich
+# der Stärke der stilistischen Abweichung unterscheiden.
+#
+# Produkttyp und Position bleiben gleich:
+# Jacke + dezentral.
+#
+# Gleichzeitig werden nur Frauen und Männer betrachtet.
+
+inkonsistenz_staerke_geschlecht <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Jacke-leicht-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Geschlecht beschriften
+    Geschlecht = case_when(
+      as.character(Geschlecht) %in% c("1", "weiblich") ~ "weiblich",
+      as.character(Geschlecht) %in% c("2", "männlich") ~ "männlich",
+      TRUE ~ NA_character_
+    ),
+    
+    # Faktor Stärke bilden
+    Staerke = case_when(
+      Condition == "Jacke-leicht-dezentral" ~ "leicht",
+      Condition == "Jacke-stark-dezentral" ~ "stark"
+    )
+  ) %>%
+  
+  # Divers, keine Angabe und fehlende Werte werden
+  # für diesen Vergleich nicht berücksichtigt
+  filter(
+    !is.na(Geschlecht),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  
+  mutate(
+    Geschlecht = factor(
+      Geschlecht,
+      levels = c(
+        "weiblich",
+        "männlich"
+      )
+    ),
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "leicht",
+        "stark"
+      )
+    )
+  )
+
+
+# Nur Personen behalten, für die Bewertungen
+# für BEIDE Stärkebedingungen vorhanden sind
+
+inkonsistenz_staerke_geschlecht <-
+  inkonsistenz_staerke_geschlecht %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 2
+  ) %>%
+  ungroup()
+
+
+# Kontrolle:
+# Jede Person sollte genau zwei Zeilen besitzen
+
+table(
+  inkonsistenz_staerke_geschlecht$number
+)
+
+
+# Anzahl Frauen und Männer anzeigen
+
+inkonsistenz_staerke_geschlecht %>%
+  distinct(
+    number,
+    Geschlecht
+  ) %>%
+  count(
+    Geschlecht
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: leichte stilistische Abweichung ####
+
+boxplot_staerke_leicht <-
+  inkonsistenz_staerke_geschlecht %>%
+  filter(
+    Staerke == "leicht"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Leichte stilistische Abweichung: Jacke leicht dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_leicht, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke_leicht
+)
+
+
+#### Boxplot 2: starke stilistische Abweichung ####
+
+boxplot_staerke_stark <-
+  inkonsistenz_staerke_geschlecht %>%
+  filter(
+    Staerke == "stark"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Starke stilistische Abweichung: Jacke stark dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_stark, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke_stark
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke_geschlecht <-
+  inkonsistenz_staerke_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Staerke
+  ) %>%
+  summarise(
+    n = n(),
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+deskriptiv_staerke_geschlecht
+
+
+# Interpretation:
+#
+# Sowohl bei Frauen als auch bei Männern steigt die
+# wahrgenommene stilistische Inkonsistenz von der
+# leichten zur starken stilistischen Abweichung.
+#
+# Bei Frauen steigt die mittlere Inkonsistenz
+# von M = 2.53 (SD = 0.95) bei leichter Abweichung
+# auf M = 3.17 (SD = 0.89) bei starker Abweichung.
+#
+# Dies entspricht einer Zunahme von 0.64 Skalenpunkten.
+#
+# Bei Männern steigt die mittlere Inkonsistenz
+# von M = 2.53 (SD = 0.89) bei leichter Abweichung
+# auf M = 3.01 (SD = 0.97) bei starker Abweichung.
+#
+# Dies entspricht einer Zunahme von 0.48 Skalenpunkten.
+#
+# Der Stärkeeffekt fällt damit deskriptiv bei Frauen
+# um etwa 0.16 Skalenpunkte stärker aus als bei Männern.
+#
+# Auffällig ist zudem, dass Frauen und Männer bei der
+# leichten Abweichung praktisch denselben Mittelwert
+# aufweisen (M = 2.53).
+#
+# Bei der starken Abweichung liegt der Mittelwert
+# der Frauen etwas über dem der Männer
+# (M = 3.17 vs. M = 3.01).
+#
+# Die Mittelwerte deuten somit höchstens auf einen
+# schwachen möglichen Interaktionseffekt zwischen
+# Stärke und Geschlecht hin.
+#
+# Ob sich der Stärkeeffekt statistisch signifikant
+# zwischen Frauen und Männern unterscheidet,
+# wird anschließend mit der Factorial Mixed ANOVA geprüft.
+
+
+#############################################################################################################
+#### Annahmen Factorial Mixed ANOVA #########################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### 1. Normalverteilung ####################################################################################
+#############################################################################################################
+
+
+# Mixed ANOVA zunächst schätzen,
+# damit die Residuen geprüft werden können
+
+anova_staerke_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "Geschlecht",
+  data = inkonsistenz_staerke_geschlecht
+)
+speichere_p_werte(anova_staerke_geschlecht, "anova_staerke_geschlecht")
+
+
+# Residuen extrahieren
+
+residuen_staerke_geschlecht <- residuals(
+  anova_staerke_geschlecht$lm
+)
+
+
+#### Density Plot der Residuen ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_staerke_geschlecht)
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × Geschlecht",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      plot.subtitle = element_text(
+        hjust = 0.5
+      )
+    ),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_07 <- shapiro.test(
+  as.numeric(residuen_staerke_geschlecht)
+)
+speichere_p_werte(shapiro_auto_07, "shapiro_auto_07")
+shapiro_auto_07
+
+
+# Interpretation:
+# p < 0.05:
+# H0 verwerfen
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+
+
+#### QQ-Plot zur zusätzlichen graphischen Beurteilung ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_staerke_geschlecht)
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × Geschlecht",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+# W liegt mit 0.98581 jedoch sehr nahe bei 1.
+# Daher wird zusätzlich der QQ-Plot betrachtet.
+#
+# Wenn die Punkte im QQ-Plot überwiegend nahe an der
+# Referenzlinie liegen und lediglich moderate Abweichungen
+# in den Randbereichen auftreten, kann die Abweichung
+# als eher gering beurteilt werden. YES
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# Levene-Test für die leichte stilistische Abweichung
+
+levene_auto_05 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke_geschlecht %>%
+    filter(
+      Staerke == "leicht"
+    )
+)
+speichere_p_werte(levene_auto_05, "levene_auto_05")
+levene_auto_05
+
+
+# Levene-Test für die starke stilistische Abweichung
+
+levene_auto_06 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke_geschlecht %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_06, "levene_auto_06")
+levene_auto_06
+
+
+# H0:
+# Die Varianzen von Frauen und Männern sind gleich.
+#
+# H1:
+# Die Varianzen von Frauen und Männern unterscheiden sich.
+#
+# Interpretation:
+#
+# p > 0.05:
+# H0 nicht verwerfen
+# -> Varianzhomogenität gegeben
+
+
+
+#############################################################################################################
+#### Factorial Mixed ANOVA: Stärke x Geschlecht #############################################################
+#############################################################################################################
+
+
+anova_staerke_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "Geschlecht",
+  data = inkonsistenz_staerke_geschlecht
+)
+speichere_p_werte(anova_staerke_geschlecht, "anova_staerke_geschlecht")
+
+
+# ANOVA-Tabelle anzeigen
+
+anova_staerke_geschlecht
+
+# Interpretation der Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt Geschlecht:
+#
+# F(1, 129) = 0.36, p = .551, ges = .002
+#
+# Da p > .05, liegt kein signifikanter Haupteffekt
+# des Geschlechts vor.
+#
+# Frauen und Männer unterscheiden sich insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Stärke:
+#
+# F(1, 129) = 33.61, p < .001, ges = .084
+#
+# Da p < .05, liegt ein signifikanter Haupteffekt
+# der Stärke vor.
+#
+# Starke stilistische Abweichungen werden insgesamt
+# signifikant inkonsistenter wahrgenommen
+# als leichte stilistische Abweichungen.
+#
+#
+# 3. Interaktion Geschlecht x Stärke:
+#
+# F(1, 129) = 0.67, p = .413, ges = .002
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen Geschlecht und Stärke vor.
+#
+# Der Einfluss der Stärke der stilistischen Abweichung
+# auf die wahrgenommene Inkonsistenz unterscheidet sich
+# somit nicht signifikant zwischen Frauen und Männern.
+#
+# Deskriptiv zeigt sich:
+#
+# Frauen:
+# leicht: M = 2.53
+# stark:  M = 3.17
+# Differenz = 0.64
+#
+# Männer:
+# leicht: M = 2.53
+# stark:  M = 3.01
+# Differenz = 0.48
+#
+# Der Stärkeeffekt fällt bei Frauen deskriptiv
+# um etwa 0.16 Skalenpunkte stärker aus als bei Männern.
+#
+# Dieser Unterschied ist jedoch statistisch
+# nicht signifikant (p = .413).
+
+
+
+
+
+#############################################################################################################
+#### Geschlechtsunterschiede: Stärke Schuh ##################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss einer starken stilistischen
+# Abweichung des Schuhs auf die wahrgenommene Inkonsistenz
+# zwischen Frauen und Männern?
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+# Faktor 1: Stärke
+# Baseline vs. stark
+# -> Within-Subjects-Faktor, da jede Person beide Outfits bewertet hat
+#
+# Baseline:
+# Min-Baseline
+#
+# Stark:
+# Schuh-stark-dezentral
+#
+# Faktor 2: Geschlecht
+# weiblich vs. männlich
+# -> Between-Subjects-Faktor
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+# Entscheidend ist insbesondere der Interaktionseffekt
+# Staerke * Geschlecht.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke_schuh_geschlecht <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Min-Baseline",
+      "Schuh-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Geschlecht beschriften
+    Geschlecht = case_when(
+      as.character(Geschlecht) %in% c("1", "weiblich") ~ "weiblich",
+      as.character(Geschlecht) %in% c("2", "männlich") ~ "männlich",
+      TRUE ~ NA_character_
+    ),
+    
+    # Faktor Stärke bilden
+    Staerke = case_when(
+      Condition == "Min-Baseline" ~ "baseline",
+      Condition == "Schuh-stark-dezentral" ~ "stark"
+    )
+  ) %>%
+  
+  # Nur Frauen und Männer sowie vorhandene Bewertungen
+  filter(
+    !is.na(Geschlecht),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  
+  mutate(
+    Geschlecht = factor(
+      Geschlecht,
+      levels = c(
+        "weiblich",
+        "männlich"
+      )
+    ),
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "baseline",
+        "stark"
+      )
+    )
+  )
+
+
+# Nur Personen behalten, für die Bewertungen
+# für BEIDE Bedingungen vorhanden sind
+
+inkonsistenz_staerke_schuh_geschlecht <-
+  inkonsistenz_staerke_schuh_geschlecht %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 2
+  ) %>%
+  ungroup()
+
+
+# Kontrolle:
+# Jede Person sollte genau zwei Zeilen besitzen
+
+table(
+  inkonsistenz_staerke_schuh_geschlecht$number
+)
+
+
+# Anzahl Frauen und Männer
+
+inkonsistenz_staerke_schuh_geschlecht %>%
+  distinct(
+    number,
+    Geschlecht
+  ) %>%
+  count(
+    Geschlecht
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: Minimalismus-Baseline ####
+
+boxplot_staerke_schuh_baseline <-
+  inkonsistenz_staerke_schuh_geschlecht %>%
+  filter(
+    Staerke == "baseline"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Minimalismus-Baseline",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_schuh_baseline, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke_schuh_baseline
+)
+
+
+#### Boxplot 2: starker stilistisch abweichender Schuh ####
+
+boxplot_staerke_schuh_stark <-
+  inkonsistenz_staerke_schuh_geschlecht %>%
+  filter(
+    Staerke == "stark"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Starker stilistisch abweichender Schuh",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_schuh_stark, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke_schuh_stark
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke_schuh_geschlecht <-
+  inkonsistenz_staerke_schuh_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Staerke
+  ) %>%
+  summarise(
+    n = n(),
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+deskriptiv_staerke_schuh_geschlecht
+
+# Interpretation:
+#
+# Sowohl bei Frauen als auch bei Männern steigt die
+# wahrgenommene stilistische Inkonsistenz von der
+# Minimalismus-Baseline zum Outfit mit einem stark
+# stilistisch abweichenden Schuh.
+#
+# Bei Frauen steigt die mittlere Inkonsistenz
+# von M = 1.74 (SD = 0.71) in der Baseline
+# auf M = 1.96 (SD = 0.73) beim stark
+# stilistisch abweichenden Schuh.
+#
+# Dies entspricht einer Zunahme von 0.22 Skalenpunkten.
+#
+# Bei Männern steigt die mittlere Inkonsistenz
+# von M = 1.79 (SD = 0.77) in der Baseline
+# auf M = 2.20 (SD = 0.86) beim stark
+# stilistisch abweichenden Schuh.
+#
+# Dies entspricht einer Zunahme von 0.41 Skalenpunkten.
+#
+# Der Effekt des stark stilistisch abweichenden Schuhs
+# fällt damit deskriptiv bei Männern um etwa
+# 0.19 Skalenpunkte stärker aus als bei Frauen.
+#
+# Die Mediane zeigen dagegen bei beiden Geschlechtern
+# dasselbe Muster:
+#
+# Frauen:  Md = 1.67 -> Md = 2.00
+# Männer:  Md = 1.67 -> Md = 2.00
+#
+# Insgesamt deutet das Mittelwertmuster deskriptiv
+# auf einen möglichen Interaktionseffekt zwischen
+# Schuh-Stärke und Geschlecht hin.
+#
+# Anders als beim Größenvergleich deutet die Richtung
+# hier darauf hin, dass der Effekt bei Männern
+# stärker ausfallen könnte als bei Frauen.
+#
+# Ob sich dieser Effekt statistisch signifikant
+# zwischen Frauen und Männern unterscheidet,
+# wird anschließend mit der Factorial Mixed ANOVA geprüft.
+
+#############################################################################################################
+#### Annahmen Factorial Mixed ANOVA #########################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### 1. Normalverteilung ####################################################################################
+#############################################################################################################
+
+
+# Mixed ANOVA zunächst schätzen,
+# damit die Residuen geprüft werden können
+
+anova_staerke_schuh_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "Geschlecht",
+  data = inkonsistenz_staerke_schuh_geschlecht
+)
+speichere_p_werte(anova_staerke_schuh_geschlecht, "anova_staerke_schuh_geschlecht")
+
+
+# Residuen extrahieren
+
+residuen_staerke_schuh_geschlecht <- residuals(
+  anova_staerke_schuh_geschlecht$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_staerke_schuh_geschlecht)
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Schuh-Stärke × Geschlecht",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+shapiro_auto_08 <- shapiro.test(
+  as.numeric(residuen_staerke_schuh_geschlecht)
+)
+speichere_p_werte(shapiro_auto_08, "shapiro_auto_08")
+shapiro_auto_08
+
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+#
+# p < 0.05:
+# -> signifikante Abweichung von der Normalverteilung
+# W auch nicht sehr nah an 1 und Graphisch auch nicht gut
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(residuen_staerke_schuh_geschlecht)
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Schuh-Stärke × Geschlecht",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# Levene-Test für die Baseline
+
+levene_auto_07 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke_schuh_geschlecht %>%
+    filter(
+      Staerke == "baseline"
+    )
+)
+speichere_p_werte(levene_auto_07, "levene_auto_07")
+levene_auto_07
+
+
+# Levene-Test für den stark stilistisch abweichenden Schuh
+
+levene_auto_08 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke_schuh_geschlecht %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_08, "levene_auto_08")
+levene_auto_08
+
+
+# H0:
+# Die Varianzen von Frauen und Männern sind gleich.
+#
+# H1:
+# Die Varianzen von Frauen und Männern unterscheiden sich.
+#
+# p > 0.05:
+# -> Varianzhomogenität gegeben
+
+
+############################################################################################################
+#### Robuste Factorial Mixed ANOVA: Schuh-Stärke x Geschlecht ###############################################
+#############################################################################################################
+
+
+# Die Normalverteilungsannahme der klassischen
+# Factorial Mixed ANOVA ist deutlich verletzt:
+#
+# Shapiro-Wilk:
+# W = 0.95009, p < .001
+#
+# Auch der QQ-Plot zeigt deutliche Abweichungen
+# von der Normalverteilung.
+#
+# Daher wird anstelle der klassischen Factorial Mixed ANOVA
+# eine robuste Factorial Mixed ANOVA durchgeführt.
+#
+# Between-Subjects-Faktor:
+# Geschlecht
+#
+# Within-Subjects-Faktor:
+# Staerke
+#
+# AV:
+# Mittelwert_Inkonsistenz
+#
+# Für die robuste Mixed ANOVA wird bwtrim() aus dem
+# Paket WRS2 verwendet.
+#
+# bwtrim() basiert standardmäßig auf 20 % getrimmten Mittelwerten.
+
+
+
+
+
+#############################################################################################################
+#### Robuste deskriptive Kennwerte ##########################################################################
+#############################################################################################################
+
+
+# Die hier verwendete robuste Mixed ANOVA mit WRS2::bwtrim()
+# arbeitet standardmäßig mit 20 % getrimmten Mittelwerten
+# (tr = 0.20).
+
+deskriptiv_staerke_schuh_robust <-
+  inkonsistenz_staerke_schuh_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Staerke
+  ) %>%
+  summarise(
+    n = n(),
+    
+    Getrimmter_Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      trim = 0.20,
+      na.rm = TRUE
+    ),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_staerke_schuh_robust
+
+
+#############################################################################################################
+#### Robuste Factorial Mixed ANOVA ##########################################################################
+#############################################################################################################
+
+
+robust_anova_staerke_schuh_geschlecht <- bwtrim(
+  Mittelwert_Inkonsistenz ~ Geschlecht * Staerke,
+  id = number,
+  data = inkonsistenz_staerke_schuh_geschlecht,
+  tr = 0.20
+)
+robust_anova_staerke_schuh_geschlecht
+# Interpretation der robusten Factorial Mixed ANOVA:
+#
+# Aufgrund der deutlich verletzten Normalverteilungsannahme
+# wurde eine robuste Factorial Mixed ANOVA mit bwtrim()
+# und 20 % getrimmten Mittelwerten durchgeführt.
+#
+#
+# 1. Haupteffekt Geschlecht:
+#
+# Testwert = 1.0987
+# df1 = 1
+# df2 = 78.9473
+# p = .2977
+#
+# Da p > .05, liegt kein signifikanter Haupteffekt
+# des Geschlechts vor.
+#
+# Frauen und Männer unterscheiden sich insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Stärke:
+#
+# Testwert = 19.0902
+# df1 = 1
+# df2 = 79.6524
+# p < .001
+#
+# Da p < .05, liegt ein signifikanter Haupteffekt
+# der Stärke vor.
+#
+# Die wahrgenommene stilistische Inkonsistenz
+# unterscheidet sich signifikant zwischen
+# der Minimalismus-Baseline und dem Outfit
+# mit stark stilistisch abweichendem Schuh.
+#
+# Deskriptiv wird der stark stilistisch abweichende
+# Schuh inkonsistenter wahrgenommen als die Baseline.
+#
+#
+# 3. Interaktion Geschlecht x Stärke:
+#
+# Testwert = 1.4496
+# df1 = 1
+# df2 = 79.6524
+# p = .2322
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen Geschlecht und Stärke vor.
+#
+# Der Einfluss des stark stilistisch abweichenden
+# Schuhs auf die wahrgenommene Inkonsistenz
+# unterscheidet sich somit nicht signifikant
+# zwischen Frauen und Männern.
+#
+# Deskriptiv zeigte sich zwar:
+#
+# Frauen:
+# Baseline: M = 1.62
+# Stark:    M = 1.90
+# Differenz = 0.32
+#
+# Männer:
+# Baseline: M = 1.66
+# Stark:    M = 2.14
+# Differenz = 0.48
+#
+# Der Effekt fällt damit deskriptiv bei Männern
+# um etwa 0.16 Skalenpunkte stärker aus.
+#
+# Dieser Unterschied ist jedoch statistisch
+# nicht signifikant (p = .2322).
+
+
+
+
+
+#############################################################################################################
+#### Geschlechtsunterschiede: Stärke mit drei Stufen ########################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Stärke der stilistischen
+# Produktabweichung auf die wahrgenommene Inkonsistenz
+# zwischen Frauen und Männern?
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+# Faktor 1: Stärke
+#
+# Baseline:
+# Min-Baseline
+#
+# Leichte Abweichung:
+# Jacke-leicht-dezentral
+#
+# Starke Abweichung:
+# Jacke-stark-dezentral
+#
+# -> Within-Subjects-Faktor mit drei Stufen,
+#    da jede Person alle drei Outfits bewertet hat.
+#
+#
+# Faktor 2: Geschlecht
+#
+# weiblich vs. männlich
+#
+# -> Between-Subjects-Faktor
+#
+#
+# Daher:
+# -> 3 x 2 Factorial Mixed ANOVA
+#
+# Besonders relevant ist der Interaktionseffekt:
+#
+# Staerke x Geschlecht
+#
+# Dieser prüft, ob sich die Veränderung der
+# Inkonsistenzbewertung über die drei Stärkestufen
+# zwischen Frauen und Männern unterscheidet.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke3_geschlecht <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Min-Baseline",
+      "Jacke-leicht-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Geschlecht beschriften
+    
+    Geschlecht = case_when(
+      as.character(Geschlecht) %in% c("1", "weiblich") ~ "weiblich",
+      as.character(Geschlecht) %in% c("2", "männlich") ~ "männlich",
+      TRUE ~ NA_character_
+    ),
+    
+    
+    # Faktor Stärke mit drei Stufen bilden
+    
+    Staerke = case_when(
+      Condition == "Min-Baseline" ~ "baseline",
+      Condition == "Jacke-leicht-dezentral" ~ "leicht",
+      Condition == "Jacke-stark-dezentral" ~ "stark"
+    )
+  ) %>%
+  
+  # Nur Frauen und Männer sowie vorhandene Bewertungen behalten
+  
+  filter(
+    !is.na(Geschlecht),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  
+  mutate(
+    
+    Geschlecht = factor(
+      Geschlecht,
+      levels = c(
+        "weiblich",
+        "männlich"
+      )
+    ),
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "baseline",
+        "leicht",
+        "stark"
+      )
+    )
+  )
+
+
+#############################################################################################################
+#### Nur vollständige Fälle behalten ########################################################################
+#############################################################################################################
+
+
+# Eine Person wird nur berücksichtigt,
+# wenn sie ALLE DREI Stärkebedingungen bewertet hat.
+
+inkonsistenz_staerke3_geschlecht <-
+  inkonsistenz_staerke3_geschlecht %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 3
+  ) %>%
+  ungroup()
+
+
+# Kontrolle:
+#
+# Jede Person sollte jetzt genau drei Zeilen besitzen.
+
+table(
+  inkonsistenz_staerke3_geschlecht$number
+)
+
+
+# Anzahl Frauen und Männer anzeigen
+
+inkonsistenz_staerke3_geschlecht %>%
+  distinct(
+    number,
+    Geschlecht
+  ) %>%
+  count(
+    Geschlecht
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: Baseline ####
+
+boxplot_staerke3_baseline <-
+  inkonsistenz_staerke3_geschlecht %>%
+  filter(
+    Staerke == "baseline"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Minimalismus-Baseline",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke3_baseline, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke3_baseline
+)
+
+
+#### Boxplot 2: leichte stilistische Abweichung ####
+
+boxplot_staerke3_leicht <-
+  inkonsistenz_staerke3_geschlecht %>%
+  filter(
+    Staerke == "leicht"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Leichte stilistische Abweichung: Jacke leicht dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke3_leicht, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke3_leicht
+)
+
+
+#### Boxplot 3: starke stilistische Abweichung ####
+
+boxplot_staerke3_stark <-
+  inkonsistenz_staerke3_geschlecht %>%
+  filter(
+    Staerke == "stark"
+  ) %>%
+  ggplot(
+    aes(
+      x = Geschlecht,
+      y = Mittelwert_Inkonsistenz,
+      fill = Geschlecht
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach Geschlecht",
+    subtitle = "Starke stilistische Abweichung: Jacke stark dezentral",
+    x = "Geschlecht",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke3_stark, "Inkonsistenzbewertung nach Geschlecht")
+
+print(
+  boxplot_staerke3_stark
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke3_geschlecht <-
+  inkonsistenz_staerke3_geschlecht %>%
+  group_by(
+    Geschlecht,
+    Staerke
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_staerke3_geschlecht
+
+# Interpretation:
+#
+# Bei Frauen und Männern steigt die wahrgenommene
+# stilistische Inkonsistenz mit zunehmender Stärke
+# der stilistischen Abweichung.
+#
+#
+# Frauen:
+#
+# Baseline:
+# M = 1.74, SD = 0.71
+#
+# Leichte Abweichung:
+# M = 2.53, SD = 0.95
+#
+# Starke Abweichung:
+# M = 3.17, SD = 0.89
+#
+# Baseline -> leicht:
+# 2.53 - 1.74 = 0.79
+#
+# Leicht -> stark:
+# 3.17 - 2.53 = 0.64
+#
+# Baseline -> stark:
+# 3.17 - 1.74 = 1.43
+#
+#
+# Männer:
+#
+# Baseline:
+# M = 1.79, SD = 0.77
+#
+# Leichte Abweichung:
+# M = 2.53, SD = 0.89
+#
+# Starke Abweichung:
+# M = 3.01, SD = 0.97
+#
+# Baseline -> leicht:
+# 2.53 - 1.79 = 0.74
+#
+# Leicht -> stark:
+# 3.01 - 2.53 = 0.48
+#
+# Baseline -> stark:
+# 3.01 - 1.79 = 1.22
+#
+#
+# Der Gesamtanstieg von der Baseline zur starken
+# stilistischen Abweichung fällt bei Frauen
+# deskriptiv um etwa 0.21 Skalenpunkte stärker aus:
+#
+# 1.43 - 1.22 = 0.21
+#
+#
+# Bei der Baseline unterscheiden sich Frauen und Männer
+# kaum voneinander:
+#
+# Frauen: M = 1.74
+# Männer: M = 1.79
+#
+# Bei der leichten Abweichung weisen beide Geschlechter
+# denselben Mittelwert auf:
+#
+# Frauen: M = 2.53
+# Männer: M = 2.53
+#
+# Erst bei der starken stilistischen Abweichung
+# liegt der Mittelwert der Frauen etwas höher:
+#
+# Frauen: M = 3.17
+# Männer: M = 3.01
+#
+#
+# Insgesamt deutet das Mittelwertmuster damit
+# deskriptiv auf einen möglichen, eher kleinen
+# Interaktionseffekt zwischen Stärke und Geschlecht hin.
+#
+# Ob dieser Unterschied statistisch signifikant ist,
+# kann anhand der deskriptiven Kennwerte noch nicht
+# entschieden werden.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+# Das Modell wird zunächst geschätzt,
+# damit Residuen und Sphärizität geprüft werden können.
+
+anova_staerke3_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "Geschlecht",
+  data = inkonsistenz_staerke3_geschlecht
+)
+speichere_p_werte(anova_staerke3_geschlecht, "anova_staerke3_geschlecht")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen aus dem Modell extrahieren
+
+residuen_staerke3_geschlecht <- residuals(
+  anova_staerke3_geschlecht$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke3_geschlecht
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × Geschlecht",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_09 <- shapiro.test(
+  as.numeric(
+    residuen_staerke3_geschlecht
+  )
+)
+speichere_p_werte(shapiro_auto_09, "shapiro_auto_09")
+shapiro_auto_09
+
+
+# Interpretation:
+# p < .05:
+#
+# H0 wird verworfen.
+#
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+
+# Die Normalverteilungsannahme der Factorial
+# Mixed ANOVA ist somit formal nicht erfüllt.
+#
+# Der Shapiro-Wilk-Wert liegt mit W = 0.98464
+# jedoch relativ nahe bei 1.
+#
+# Daher wird zusätzlich der QQ-Plot betrachtet,
+# um das Ausmaß der Abweichung von der
+# Normalverteilung graphisch zu beurteilen.
+# ist grafisch noch ok
+
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke3_geschlecht
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × Geschlecht",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# Da Geschlecht der Between-Subjects-Faktor ist,
+# wird für jede Stärkestufe geprüft,
+# ob sich die Varianzen zwischen Frauen und Männern unterscheiden.
+
+
+#### Baseline ####
+
+levene_auto_09 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke3_geschlecht %>%
+    filter(
+      Staerke == "baseline"
+    )
+)
+speichere_p_werte(levene_auto_09, "levene_auto_09")
+levene_auto_09
+
+
+#### Leichte Abweichung ####
+
+levene_auto_10 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke3_geschlecht %>%
+    filter(
+      Staerke == "leicht"
+    )
+)
+speichere_p_werte(levene_auto_10, "levene_auto_10")
+levene_auto_10
+
+
+#### Starke Abweichung ####
+
+levene_auto_11 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ Geschlecht,
+  data = inkonsistenz_staerke3_geschlecht %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_11, "levene_auto_11")
+levene_auto_11
+
+
+# H0:
+#
+# Die Varianzen von Frauen und Männern sind gleich.
+#
+#
+# H1:
+#
+# Die Varianzen von Frauen und Männern unterscheiden sich.
+#
+# Insgesamt ist die Annahme der Varianzhomogenität
+# für alle drei Stärkestufen erfüllt.
+
+
+#############################################################################################################
+#### 3. Sphärizität #########################################################################################
+#############################################################################################################
+
+
+# WICHTIG:
+#
+# Im Gegensatz zu den vorherigen Analysen besitzt
+# der Within-Subjects-Faktor Stärke jetzt DREI Stufen:
+#
+# 1. Baseline
+# 2. leicht
+# 3. stark
+#
+# Daher ist die Sphärizitätsannahme nicht mehr
+# automatisch erfüllt.
+#
+# Sie muss mit dem Mauchly-Test geprüft werden.
+
+
+# Zusammenfassung des afex-Modells ausgeben.
+#
+# Diese enthält unter anderem:
+#
+# - Mauchly's Test for Sphericity
+# - Greenhouse-Geisser-Korrektur
+# - Huynh-Feldt-Korrektur
+
+summary_anova_staerke3_geschlecht <- summary(
+  anova_staerke3_geschlecht
+)
+speichere_p_werte(summary_anova_staerke3_geschlecht, "summary_anova_staerke3_geschlecht")
+summary_anova_staerke3_geschlecht
+
+
+# Beim Mauchly-Test gilt:
+#
+# H0:
+# Sphärizität ist gegeben.
+#
+# H1:
+# Sphärizität ist verletzt.
+#
+#
+# p > .05:
+#
+# H0 nicht verwerfen
+# -> Sphärizität kann angenommen werden,
+# eine Korrektur der Freiheitsgrade durch
+# beispielsweise die Greenhouse-Geisser-Korrektur ist nicht nötig.
+
+
+
+############################
+#### ANOVA
+##########################
+anova_staerke3_geschlecht <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "Geschlecht",
+  data = inkonsistenz_staerke3_geschlecht
+)
+speichere_p_werte(anova_staerke3_geschlecht, "anova_staerke3_geschlecht")
+
+
+# ANOVA-Tabelle anzeigen
+
+anova_staerke3_geschlecht
+
+
+# Interpretation der 3 x 2 Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt Geschlecht:
+#
+# F(1, 129) = 0.10
+# p = .753
+# ges < .001
+#
+# Da p > .05, liegt kein signifikanter
+# Haupteffekt des Geschlechts vor.
+#
+# Frauen und Männer unterscheiden sich über
+# die drei Stärkebedingungen hinweg insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Stärke:
+#
+# F(1.94, 250.52) = 109.99
+# p < .001
+# ges = .280
+#
+# Da p < .05, liegt ein signifikanter
+# Haupteffekt der Stärke vor.
+#
+# Die wahrgenommene stilistische Inkonsistenz
+# unterscheidet sich signifikant zwischen
+# Baseline, leichter und starker
+# stilistischer Abweichung.
+#
+# Deskriptiv steigt die Inkonsistenzbewertung
+# bei beiden Geschlechtern mit zunehmender
+# Stärke der stilistischen Abweichung.
+#
+#
+# 3. Interaktion Geschlecht x Stärke:
+#
+# F(1.94, 250.52) = 0.74
+# p = .473
+# ges = .003
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen Geschlecht
+# und Stärke vor.
+#
+# Der Einfluss der Stärke der stilistischen
+# Abweichung auf die wahrgenommene Inkonsistenz
+# unterscheidet sich somit nicht signifikant
+# zwischen Frauen und Männern.
+
+
+
+
+#### CVPA Unterschiede#######################################################################################
+
+#############################################################################################################
+#### CVPA-Mittelwert berechnen und Personen in zwei Gruppen einteilen #######################################
+#############################################################################################################
+
+
+
+#############################################################################################################
+#### Individuellen CVPA-Mittelwert berechnen ################################################################
+#############################################################################################################
+
+
+# Für jede Person wird der Mittelwert aus den neun
+# CVPA-Items berechnet.
+#
+# Da die CVPA-Items personenbezogen sind, besitzt eine
+# Person in allen fünf Outfit-Zeilen denselben CVPA-Wert.
+
+salienz_reshaped <- salienz_reshaped %>%
+  mutate(
+    Mittelwert_CVPA = rowMeans(
+      across(
+        CVPA1:CVPA9
+      ),
+      na.rm = TRUE
+    )
+  )
+
+
+#############################################################################################################
+#### Gesamtmittelwert des CVPA berechnen ####################################################################
+#############################################################################################################
+
+
+# Jede Person darf für die Berechnung des Gesamtmittelwerts
+# nur einmal berücksichtigt werden.
+
+cvpa_personen <- salienz_reshaped %>%
+  distinct(
+    number,
+    Mittelwert_CVPA
+  )
+
+
+# Gesamtmittelwert aller Personen berechnen
+
+cvpa_gesamtmittelwert <- mean(
+  cvpa_personen$Mittelwert_CVPA,
+  na.rm = TRUE
+)
+
+
+# Cut-off anzeigen
+
+cvpa_gesamtmittelwert
+
+
+#############################################################################################################
+#### Personen anhand des CVPA-Mittelwerts in zwei Gruppen einteilen #########################################
+#############################################################################################################
+
+
+cvpa_personen <- cvpa_personen %>%
+  mutate(
+    CVPA_Gruppe = case_when(
+      
+      Mittelwert_CVPA < cvpa_gesamtmittelwert ~
+        "unter Mittelwert",
+      
+      Mittelwert_CVPA > cvpa_gesamtmittelwert ~
+        "über Mittelwert",
+      
+      # Falls tatsächlich jemand exakt auf dem
+      # Gesamtmittelwert liegt:
+      Mittelwert_CVPA == cvpa_gesamtmittelwert ~
+        "genau Mittelwert"
+    )
+  )
+
+
+#############################################################################################################
+#### Gruppengrößen kontrollieren ############################################################################
+#############################################################################################################
+
+
+cvpa_personen %>%
+  count(
+    CVPA_Gruppe
+  )
+
+
+#############################################################################################################
+#### CVPA-Gruppe wieder an salienz_reshaped anhängen ########################################################
+#############################################################################################################
+
+
+salienz_reshaped <- salienz_reshaped %>%
+  left_join(
+    cvpa_personen %>%
+      select(
+        number,
+        CVPA_Gruppe
+      ),
+    by = "number"
+  )
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+salienz_reshaped %>%
+  distinct(
+    number,
+    Mittelwert_CVPA,
+    CVPA_Gruppe
+  ) %>%
+  count(
+    CVPA_Gruppe
+  )
+
+# 63 unter Mittelwert
+# 72 überm Mittelwert
+
+
+
+################################ Position -###############
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_position_cvpa <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Jacke-stark-dezentral",
+      "Jacke-stark-zentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Faktor Position bilden
+    
+    Position = case_when(
+      Condition == "Jacke-stark-dezentral" ~ "dezentral",
+      Condition == "Jacke-stark-zentral" ~ "zentral"
+    ),
+    
+    
+    # CVPA-Gruppe als Faktor definieren
+    
+    CVPA_Gruppe = factor(
+      CVPA_Gruppe,
+      levels = c(
+        "unter Mittelwert",
+        "über Mittelwert"
+      )
+    ),
+    
+    
+    # Position als Faktor definieren
+    
+    Position = factor(
+      Position,
+      levels = c(
+        "dezentral",
+        "zentral"
+      )
+    )
+  ) %>%
+  
+  # Nur vollständige Werte berücksichtigen
+  
+  filter(
+    !is.na(CVPA_Gruppe),
+    !is.na(Position),
+    !is.na(Mittelwert_Inkonsistenz)
+  )
+
+
+#############################################################################################################
+#### Nur Personen mit beiden Positionsbedingungen behalten #################################################
+#############################################################################################################
+
+
+# Eine Person wird nur berücksichtigt,
+# wenn für sie sowohl die dezentrale als auch
+# die zentrale Bedingung vorhanden ist.
+
+inkonsistenz_position_cvpa <-
+  inkonsistenz_position_cvpa %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Position) == 2
+  ) %>%
+  ungroup()
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+# Jede Person sollte genau zwei Zeilen besitzen.
+
+table(
+  inkonsistenz_position_cvpa$number
+)
+
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: dezentrale Position ####
+
+boxplot_position_dezentral_cvpa <-
+  inkonsistenz_position_cvpa %>%
+  filter(
+    Position == "dezentral"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Starke stilistische Abweichung: Jacke dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_position_dezentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_position_dezentral_cvpa
+)
+
+
+#### Boxplot 2: zentrale Position ####
+
+boxplot_position_zentral_cvpa <-
+  inkonsistenz_position_cvpa %>%
+  filter(
+    Position == "zentral"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Starke stilistische Abweichung: Jacke zentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_position_zentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_position_zentral_cvpa
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_position_cvpa <-
+  inkonsistenz_position_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Position
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_position_cvpa
+# Interpretation:
+#
+# Sowohl bei Personen mit einem CVPA unterhalb als auch
+# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
+# stilistische Inkonsistenz von der dezentralen zur
+# zentralen Position.
+#
+#
+# CVPA unter Mittelwert:
+#
+# Dezentral:
+# M = 3.16, SD = 0.89
+#
+# Zentral:
+# M = 3.47, SD = 0.94
+#
+# Differenz:
+# 3.47 - 3.16 = 0.31
+#
+#
+# CVPA über Mittelwert:
+#
+# Dezentral:
+# M = 3.05, SD = 0.94
+#
+# Zentral:
+# M = 3.59, SD = 1.04
+#
+# Differenz:
+# 3.59 - 3.05 = 0.54
+#
+#
+# Der Positionseffekt fällt damit bei Personen mit
+# einem CVPA über dem Gesamtmittelwert deskriptiv
+# um etwa 0.23 Skalenpunkte stärker aus:
+#
+# 0.54 - 0.31 = 0.23
+#
+# Insgesamt deutet das Mittelwertmuster deskriptiv
+# auf einen möglichen kleinen Interaktionseffekt
+# zwischen Position und CVPA-Gruppe hin.
+#
+# Ob dieser Unterschied statistisch signifikant ist,
+# kann erst anhand der Factorial Mixed ANOVA
+# beurteilt werden.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+# Das Mixed-ANOVA-Modell wird zunächst geschätzt,
+# damit anschließend die Residuen geprüft werden können.
+
+anova_position_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Position",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_position_cvpa
+)
+speichere_p_werte(anova_position_cvpa, "anova_position_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen aus dem Modell extrahieren
+
+residuen_position_cvpa <- residuals(
+  anova_position_cvpa$lm
+)
+
+
+#### Density Plot der Residuen ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_position_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Position × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_10 <- shapiro.test(
+  as.numeric(
+    residuen_position_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_10, "shapiro_auto_10")
+shapiro_auto_10
+
+
+# Interpretation:
+
+# p < .05:
+#
+# H0 verwerfen.
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+#
+#
+# Der Shapiro-Wilk-Test wird zusätzlich
+# anhand des QQ-Plots beurteilt.
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_position_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Position × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+# H0 nicht verwerfen, graphisch nicht zu schlecht
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# CVPA_Gruppe ist der Between-Subjects-Faktor.
+#
+# Daher wird für jede Positionsbedingung geprüft,
+# ob die Varianzen zwischen den beiden CVPA-Gruppen
+# homogen sind.
+
+
+#### Dezentrale Position ####
+
+levene_auto_12 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_position_cvpa %>%
+    filter(
+      Position == "dezentral"
+    )
+)
+speichere_p_werte(levene_auto_12, "levene_auto_12")
+levene_auto_12
+
+
+#### Zentrale Position ####
+
+levene_auto_13 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_position_cvpa %>%
+    filter(
+      Position == "zentral"
+    )
+)
+speichere_p_werte(levene_auto_13, "levene_auto_13")
+levene_auto_13
+
+# Insgesamt ist die Varianzhomogenität
+# für beide Positionsbedingungen erfüllt.
+
+
+#############################################################################################################
+#### 2 x 2 Factorial Mixed ANOVA: Position x CVPA ###########################################################
+#############################################################################################################
+
+
+anova_position_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Position",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_position_cvpa
+)
+speichere_p_werte(anova_position_cvpa, "anova_position_cvpa")
+
+
+# ANOVA-Tabelle anzeigen
+
+anova_position_cvpa
+# Interpretation der 2 x 2 Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt CVPA-Gruppe:
+#
+# F(1, 133) = 0.00
+# p = .992
+# ges < .001
+#
+# Da p > .05, liegt kein signifikanter
+# Haupteffekt der CVPA-Gruppe vor.
+#
+# Personen mit einem CVPA unterhalb und oberhalb
+# des Gesamtmittelwerts unterscheiden sich über
+# beide Positionsbedingungen hinweg insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Position:
+#
+# F(1, 133) = 19.88
+# p < .001
+# ges = .047
+#
+# Da p < .05, liegt ein signifikanter
+# Haupteffekt der Position vor.
+#
+# Die zentrale Position des stilistisch
+# abweichenden Produkts führt insgesamt zu
+# einer höheren wahrgenommenen Inkonsistenz
+# als die dezentrale Position.
+#
+#
+# 3. Interaktion CVPA-Gruppe x Position:
+#
+# F(1, 133) = 1.20
+# p = .194
+# ges = .004
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen CVPA-Gruppe
+# und Position vor.
+#
+# Der Einfluss der Position auf die wahrgenommene
+# Inkonsistenz unterscheidet sich somit nicht
+# signifikant zwischen Personen mit niedrigem
+# und hohem CVPA.
+#
+#
+# Deskriptiv:
+#
+
+
+
+
+
+#### Unterschiede nach CVPA: Größe ##########################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Größe des stilistisch
+# abweichenden Produkts auf die wahrgenommene Inkonsistenz
+# zwischen Personen mit niedrigem und hohem CVPA?
+#
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+#
+# Faktor 1: Größe
+#
+# klein:
+# Schuh-stark-dezentral
+#
+# groß:
+# Jacke-stark-dezentral
+#
+# -> Within-Subjects-Faktor,
+#    da jede Person beide Outfits bewertet hat.
+#
+#
+# Faktor 2: CVPA-Gruppe
+#
+# unter Mittelwert
+# über Mittelwert
+#
+# -> Between-Subjects-Faktor
+#
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+#
+# Besonders relevant ist der Interaktionseffekt:
+#
+# Groesse x CVPA_Gruppe
+#
+# Dieser prüft, ob sich der Einfluss der Produktgröße
+# zwischen Personen mit niedrigem und hohem CVPA unterscheidet.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_groesse_cvpa <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Schuh-stark-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Faktor Größe bilden
+    
+    Groesse = case_when(
+      Condition == "Schuh-stark-dezentral" ~ "klein",
+      Condition == "Jacke-stark-dezentral" ~ "gross"
+    ),
+    
+    
+    # CVPA-Gruppe als Faktor definieren
+    
+    CVPA_Gruppe = factor(
+      CVPA_Gruppe,
+      levels = c(
+        "unter Mittelwert",
+        "über Mittelwert"
+      )
+    ),
+    
+    
+    # Größe als Faktor definieren
+    
+    Groesse = factor(
+      Groesse,
+      levels = c(
+        "klein",
+        "gross"
+      )
+    )
+  ) %>%
+  
+  # Nur vollständige Werte berücksichtigen
+  
+  filter(
+    !is.na(CVPA_Gruppe),
+    !is.na(Groesse),
+    !is.na(Mittelwert_Inkonsistenz)
+  )
+
+
+#############################################################################################################
+#### Nur Personen mit beiden Größenbedingungen behalten ####################################################
+#############################################################################################################
+
+
+# Eine Person wird nur berücksichtigt,
+# wenn sowohl die kleine als auch die große
+# Produktbedingung vorhanden ist.
+
+inkonsistenz_groesse_cvpa <-
+  inkonsistenz_groesse_cvpa %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Groesse) == 2
+  ) %>%
+  ungroup()
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+# Jede Person sollte genau zwei Zeilen besitzen.
+
+table(
+  inkonsistenz_groesse_cvpa$number
+)
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: kleines stilistisch abweichendes Produkt ####
+
+boxplot_groesse_klein_cvpa <-
+  inkonsistenz_groesse_cvpa %>%
+  filter(
+    Groesse == "klein"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_groesse_klein_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_groesse_klein_cvpa
+)
+
+
+#### Boxplot 2: großes stilistisch abweichendes Produkt ####
+
+boxplot_groesse_gross_cvpa <-
+  inkonsistenz_groesse_cvpa %>%
+  filter(
+    Groesse == "gross"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Großes stilistisch abweichendes Produkt: Jacke stark dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_groesse_gross_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_groesse_gross_cvpa
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_groesse_cvpa <-
+  inkonsistenz_groesse_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Groesse
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_groesse_cvpa
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+anova_groesse_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Groesse",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_groesse_cvpa
+)
+speichere_p_werte(anova_groesse_cvpa, "anova_groesse_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen aus dem Modell extrahieren
+
+residuen_groesse_cvpa <- residuals(
+  anova_groesse_cvpa$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_groesse_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_11 <- shapiro.test(
+  as.numeric(
+    residuen_groesse_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_11, "shapiro_auto_11")
+shapiro_auto_11
+
+
+# Interpretation:
+
+# p < .05:
+#
+# H0 verwerfen.
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+#
+#
+# Zusätzlich wird der QQ-Plot betrachtet.
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_groesse_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# CVPA_Gruppe ist der Between-Subjects-Faktor.
+#
+# Daher wird für beide Größenbedingungen geprüft,
+# ob die Varianzen zwischen den beiden CVPA-Gruppen
+# homogen sind.
+
+
+#### Kleines Produkt ####
+
+levene_auto_14 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_groesse_cvpa %>%
+    filter(
+      Groesse == "klein"
+    )
+)
+speichere_p_werte(levene_auto_14, "levene_auto_14")
+levene_auto_14
+
+
+#### Großes Produkt ####
+
+levene_auto_15 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_groesse_cvpa %>%
+    filter(
+      Groesse == "gross"
+    )
+)
+speichere_p_werte(levene_auto_15, "levene_auto_15")
+levene_auto_15
+
+# Interpretation:
+#
+# Sowohl bei Personen mit einem CVPA unterhalb als auch
+# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
+# stilistische Inkonsistenz deutlich vom kleinen zum
+# großen stilistisch abweichenden Produkt.
+#
+
+#
+#
+# Der Größeneffekt ist damit in beiden
+# CVPA-Gruppen nahezu gleich stark.
+#
+# Der Unterschied zwischen den beiden
+# Größeneffekten beträgt lediglich:
+#
+#
+# Bei beiden Größenbedingungen weist die Gruppe
+# unterhalb des CVPA-Mittelwerts deskriptiv
+# etwas höhere Inkonsistenzbewertungen auf:
+#
+
+#
+#
+# Insgesamt deutet das Mittelwertmuster
+# deskriptiv kaum auf einen Interaktionseffekt
+# zwischen Größe und CVPA-Gruppe hin. 
+# Ob ein statistisch signifikanter Unterschied
+# besteht, wird anschließend mit der
+# Factorial Mixed ANOVA geprüft.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+anova_groesse_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Groesse",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_groesse_cvpa
+)
+speichere_p_werte(anova_groesse_cvpa, "anova_groesse_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen aus dem Modell extrahieren
+
+residuen_groesse_cvpa <- residuals(
+  anova_groesse_cvpa$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_groesse_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_12 <- shapiro.test(
+  as.numeric(
+    residuen_groesse_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_12, "shapiro_auto_12")
+shapiro_auto_12
+
+
+# Interpretation:
+
+# p < .05:
+#
+# H0 verwerfen.
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+#
+#
+# Zusätzlich wird der QQ-Plot betrachtet. Der sieht nicht gut aus. H0 verwerfen
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_groesse_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# CVPA_Gruppe ist der Between-Subjects-Faktor.
+#
+# Daher wird für beide Größenbedingungen geprüft,
+# ob die Varianzen zwischen den beiden CVPA-Gruppen
+# homogen sind.
+
+
+#### Kleines Produkt ####
+
+levene_auto_16 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_groesse_cvpa %>%
+    filter(
+      Groesse == "klein"
+    )
+)
+speichere_p_werte(levene_auto_16, "levene_auto_16")
+levene_auto_16
+
+
+#### Großes Produkt ####
+
+levene_auto_17 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_groesse_cvpa %>%
+    filter(
+      Groesse == "gross"
+    )
+)
+speichere_p_werte(levene_auto_17, "levene_auto_17")
+levene_auto_17
+
+## VArianzen ok
+#############################################################################################################
+#### Robuste Factorial Mixed ANOVA: Größe x CVPA ############################################################
+#############################################################################################################
+
+
+# Die Normalverteilungsannahme ist deutlich verletzt:
+#
+# Shapiro-Wilk:
+# W = 0.98263
+# p < .05
+#
+# Zusätzlich zeigt der QQ-Plot deutliche Abweichungen
+# von der Normalverteilung.
+#
+# Daher wird anstelle der klassischen Factorial Mixed ANOVA
+# eine robuste Factorial Mixed ANOVA durchgeführt.
+#
+#
+# Between-Subjects-Faktor:
+# CVPA_Gruppe
+#
+# Within-Subjects-Faktor:
+# Groesse
+#
+# AV:
+# Mittelwert_Inkonsistenz
+#
+#
+# Für die robuste Mixed ANOVA wird bwtrim()
+# aus dem Paket WRS2 verwendet.
+#
+# bwtrim() arbeitet standardmäßig mit
+# 20 % getrimmten Mittelwerten.
+
+
+
+
+#############################################################################################################
+#### Robuste deskriptive Kennwerte ##########################################################################
+#############################################################################################################
+
+
+# Passend zur robusten ANOVA werden zusätzlich
+# die 20 % getrimmten Mittelwerte ausgegeben.
+
+deskriptiv_groesse_cvpa_robust <-
+  inkonsistenz_groesse_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Groesse
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Getrimmter_Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      trim = 0.20,
+      na.rm = TRUE
+    ),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_groesse_cvpa_robust
+
+
+#############################################################################################################
+#### Robuste 2 x 2 Factorial Mixed ANOVA ####################################################################
+#############################################################################################################
+
+
+robust_anova_groesse_cvpa <- bwtrim(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Groesse,
+  id = number,
+  data = inkonsistenz_groesse_cvpa,
+  tr = 0.20
+)
+
+
+# Ergebnisse anzeigen
+robust_anova_groesse_cvpa
+
+# Interpretation der robusten Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt CVPA-Gruppe:
+#
+
+# Da p > .05, liegt kein signifikanter
+# Haupteffekt der CVPA-Gruppe vor.
+#
+# Personen mit einem CVPA unterhalb und oberhalb
+# des Gesamtmittelwerts unterscheiden sich insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Größe:
+#
+
+# Da p < .05, liegt ein signifikanter
+# Haupteffekt der Größe vor.
+#
+# Die wahrgenommene Inkonsistenz unterscheidet sich
+# somit signifikant zwischen dem kleinen und dem
+# großen stilistisch abweichenden Produkt.
+#
+# Aus den deskriptiven Mittelwerten ergibt sich:
+
+#
+# Das große stilistisch abweichende Produkt wird
+# somit in beiden CVPA-Gruppen deutlich inkonsistenter
+# wahrgenommen als das kleine Produkt.
+#
+#
+# 3. Interaktion CVPA-Gruppe x Größe:
+#
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen CVPA-Gruppe und Größe vor.
+#
+# Der Einfluss der Produktgröße auf die wahrgenommene
+# Inkonsistenz unterscheidet sich somit nicht signifikant
+# zwischen Personen mit einem CVPA unterhalb und
+# oberhalb des Gesamtmittelwerts.
+#
+# Der deskriptiv sehr kleine Unterschied zwischen
+# den Größeneffekten von 1.01 und 1.07
+# wird damit auch inferenzstatistisch nicht bestätigt.
+
+
+
+
+#############################################################################################################
+#### Unterschiede nach CVPA: Stärke #########################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Stärke der
+# stilistischen Abweichung auf die wahrgenommene
+# Inkonsistenz zwischen Personen mit niedrigem
+# und hohem CVPA?
+#
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+#
+# Faktor 1: Stärke
+#
+# leicht:
+# Jacke-leicht-dezentral
+#
+# stark:
+# Jacke-stark-dezentral
+#
+# -> Within-Subjects-Faktor,
+#    da jede Person beide Outfits bewertet hat.
+#
+#
+# Faktor 2: CVPA-Gruppe
+#
+# unter Mittelwert
+# über Mittelwert
+#
+# -> Between-Subjects-Faktor
+#
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+#
+# Besonders relevant ist der Interaktionseffekt:
+#
+# Staerke x CVPA_Gruppe
+#
+# Dieser prüft, ob sich der Einfluss der Stärke
+# der stilistischen Abweichung zwischen Personen
+# mit niedrigem und hohem CVPA unterscheidet.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke_cvpa <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Jacke-leicht-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Faktor Stärke bilden
+    
+    Staerke = case_when(
+      Condition == "Jacke-leicht-dezentral" ~ "leicht",
+      Condition == "Jacke-stark-dezentral" ~ "stark"
+    ),
+    
+    
+    # CVPA-Gruppe als Faktor definieren
+    
+    CVPA_Gruppe = factor(
+      CVPA_Gruppe,
+      levels = c(
+        "unter Mittelwert",
+        "über Mittelwert"
+      )
+    ),
+    
+    
+    # Stärke als Faktor definieren
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "leicht",
+        "stark"
+      )
+    )
+  ) %>%
+  
+  # Nur vollständige Werte berücksichtigen
+  
+  filter(
+    !is.na(CVPA_Gruppe),
+    !is.na(Staerke),
+    !is.na(Mittelwert_Inkonsistenz)
+  )
+
+
+#############################################################################################################
+#### Nur Personen mit beiden Stärkebedingungen behalten #####################################################
+#############################################################################################################
+
+
+# Eine Person wird nur berücksichtigt,
+# wenn sowohl die leichte als auch die starke
+# Abweichungsbedingung vorhanden ist.
+
+inkonsistenz_staerke_cvpa <-
+  inkonsistenz_staerke_cvpa %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 2
+  ) %>%
+  ungroup()
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+# Jede Person sollte genau zwei Zeilen besitzen.
+
+table(
+  inkonsistenz_staerke_cvpa$number
+)
+
+
+# Anzahl der Personen je CVPA-Gruppe
+
+inkonsistenz_staerke_cvpa %>%
+  distinct(
+    number,
+    CVPA_Gruppe
+  ) %>%
+  count(
+    CVPA_Gruppe
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: leichte stilistische Abweichung ####
+
+boxplot_staerke_leicht_cvpa <-
+  inkonsistenz_staerke_cvpa %>%
+  filter(
+    Staerke == "leicht"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Leichte stilistische Abweichung: Jacke dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_leicht_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_staerke_leicht_cvpa
+)
+
+
+#### Boxplot 2: starke stilistische Abweichung ####
+
+boxplot_staerke_stark_cvpa <-
+  inkonsistenz_staerke_cvpa %>%
+  filter(
+    Staerke == "stark"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Starke stilistische Abweichung: Jacke dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_staerke_stark_cvpa
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke_cvpa <-
+  inkonsistenz_staerke_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Staerke
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_staerke_cvpa
+# Interpretation:
+#
+# Sowohl bei Personen mit einem CVPA unterhalb als auch
+# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
+# stilistische Inkonsistenz von der leichten zur
+# starken stilistischen Abweichung.
+#
+#
+# CVPA unter Mittelwert:
+#
+# Leichte Abweichung:
+# M = 2.59, SD = 0.86
+#
+# Starke Abweichung:
+# M = 3.16, SD = 0.89
+#
+# Differenz:
+# 3.16 - 2.59 = 0.57
+#
+#
+# CVPA über Mittelwert:
+#
+# Leichte Abweichung:
+# M = 2.44, SD = 1.00
+#
+# Starke Abweichung:
+# M = 3.05, SD = 0.94
+#
+# Differenz:
+# 3.05 - 2.44 = 0.61
+#
+#
+# Der Stärkeeffekt ist damit in beiden
+# CVPA-Gruppen nahezu identisch.
+#
+# Der Unterschied zwischen den beiden
+# Stärkeeffekten beträgt lediglich:
+#
+# 0.61 - 0.57 = 0.04
+#
+#
+# Auch die absoluten Mittelwerte liegen in beiden
+# Bedingungen sehr nah beieinander:
+#
+#
+#
+# Insgesamt deutet das Mittelwertmuster
+# deskriptiv kaum auf einen Interaktionseffekt
+# zwischen Stärke und CVPA-Gruppe hin.
+#
+# Ob ein statistisch signifikanter Unterschied
+# vorliegt, wird anschließend mit der
+# Factorial Mixed ANOVA bzw. bei verletzten
+# Annahmen mit einer robusten Mixed ANOVA geprüft.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+anova_staerke_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_staerke_cvpa
+)
+speichere_p_werte(anova_staerke_cvpa, "anova_staerke_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen aus dem Modell extrahieren
+
+residuen_staerke_cvpa <- residuals(
+  anova_staerke_cvpa$lm
+)
+
+
+#### Density Plot der Residuen ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_13 <- shapiro.test(
+  as.numeric(
+    residuen_staerke_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_13, "shapiro_auto_13")
+shapiro_auto_13
+
+
+# Interpretation:
+#
+# p > .05:
+#
+# H0 nicht verwerfen.
+# -> keine statistisch signifikante Abweichung
+#    von der Normalverteilung
+#
+#
+# p < .05:
+#
+# H0 verwerfen.
+# -> statistisch signifikante Abweichung
+#    von der Normalverteilung
+#
+#
+# Zusätzlich wird der QQ-Plot betrachtet.
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+# p < 0.05 aber Graph ist okay
+# Der Shapiro-Wilk-Wert liegt jedoch sehr nahe bei 1.
+#
+# Zusätzlich zeigt der QQ-Plot keine gravierenden
+# systematischen Abweichungen von der Normalverteilung.
+#
+# Die Abweichung wird daher als gering und für
+# die Durchführung der Mixed ANOVA als vertretbar beurteilt.
+#
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# CVPA_Gruppe ist der Between-Subjects-Faktor.
+#
+# Daher wird für beide Stärkebedingungen geprüft,
+# ob die Varianzen zwischen den beiden CVPA-Gruppen
+# homogen sind.
+
+
+#### Leichte stilistische Abweichung ####
+
+levene_auto_18 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke_cvpa %>%
+    filter(
+      Staerke == "leicht"
+    )
+)
+speichere_p_werte(levene_auto_18, "levene_auto_18")
+levene_auto_18
+
+
+#### Starke stilistische Abweichung ####
+
+levene_auto_19 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke_cvpa %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_19, "levene_auto_19")
+levene_auto_19
+# Die Varianzhomogenität ist für beide
+# Stärkebedingungen gegeben
+
+
+
+#############################################################################################################
+#### 2 x 2 Factorial Mixed ANOVA: Stärke x CVPA #############################################################
+#############################################################################################################
+
+anova_staerke_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_staerke_cvpa
+)
+speichere_p_werte(anova_staerke_cvpa, "anova_staerke_cvpa")
+
+
+# ANOVA-Tabelle anzeigen
+
+anova_staerke_cvpa
+
+# Interpretation der 2 x 2 Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt CVPA-Gruppe:
+#
+# F(1, 133) = 1.1
+# p = .297
+# ges = .005
+#
+# Da p > .05, liegt kein signifikanter
+# Haupteffekt der CVPA-Gruppe vor.
+#
+# Personen mit einem CVPA unterhalb und oberhalb
+# des Gesamtmittelwerts unterscheiden sich insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Stärke:
+#
+# F(1, 133) = 38.39
+# p < .001
+# ges = .094
+#
+# Da p < .05, liegt ein signifikanter
+# Haupteffekt der Stärke der stilistischen
+# Abweichung vor.
+#
+# Eine starke stilistische Abweichung wird
+# insgesamt als inkonsistenter wahrgenommen
+# als eine leichte stilistische Abweichung.
+#
+#
+# Deskriptiv:
+#
+
+#
+# 3. Interaktion CVPA-Gruppe x Stärke:
+#
+# F(1, 133) = 0.03
+# p = .873
+# ges < .001
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen CVPA-Gruppe
+# und Stärke vor.
+#
+# Der Einfluss der Stärke der stilistischen
+# Abweichung auf die wahrgenommene Inkonsistenz
+# unterscheidet sich somit nicht signifikant
+# zwischen Personen mit einem CVPA unterhalb
+# und oberhalb des Gesamtmittelwerts.
+#
+#
+# Dies wird durch den sehr hohen p-Wert
+# der Interaktion von p = .873 bestätigt.
+
+# Damit hast du bei CVPA bisher ein sehr konsistentes Muster: keine Moderation bei Position, keine Moderation bei Größe und keine Moderation bei Stärke. Die jeweiligen Salienzmanipulationen wirken, aber ihre Wirkung scheint nicht davon abzuhängen, ob eine Person unter oder über dem durchschnittlichen CVPA liegt.
+
+
+
+
+
+#############################################################################################################
+#### Unterschiede nach CVPA: Stärke mit Baseline ############################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss der Stärke der
+# stilistischen Abweichung auf die wahrgenommene
+# Inkonsistenz zwischen Personen mit einem CVPA
+# unterhalb und oberhalb des Gesamtmittelwerts?
+#
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+#
+# Faktor 1: Stärke
+#
+# baseline:
+# Min-Baseline
+#
+# leicht:
+# Jacke-leicht-dezentral
+#
+# stark:
+# Jacke-stark-dezentral
+#
+# -> Within-Subjects-Faktor,
+#    da jede Person alle drei Outfits bewertet hat.
+#
+#
+# Faktor 2: CVPA-Gruppe
+#
+# unter Mittelwert
+# über Mittelwert
+#
+# -> Between-Subjects-Faktor
+#
+#
+# Daher:
+# -> 3 x 2 Factorial Mixed ANOVA
+#
+#
+# Besonders relevant ist der Interaktionseffekt:
+#
+# Staerke x CVPA_Gruppe
+#
+# Dieser prüft, ob sich die Veränderung der
+# Inkonsistenzbewertung über Baseline, leichte
+# und starke Abweichung zwischen den beiden
+# CVPA-Gruppen unterscheidet.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke3_cvpa <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Min-Baseline",
+      "Jacke-leicht-dezentral",
+      "Jacke-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Faktor Stärke bilden
+    
+    Staerke = case_when(
+      Condition == "Min-Baseline" ~ "baseline",
+      Condition == "Jacke-leicht-dezentral" ~ "leicht",
+      Condition == "Jacke-stark-dezentral" ~ "stark"
+    ),
+    
+    
+    # CVPA-Gruppe als Faktor definieren
+    
+    CVPA_Gruppe = factor(
+      CVPA_Gruppe,
+      levels = c(
+        "unter Mittelwert",
+        "über Mittelwert"
+      )
+    ),
+    
+    
+    # Stärke als Faktor definieren
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "baseline",
+        "leicht",
+        "stark"
+      )
+    )
+  ) %>%
+  
+  filter(
+    !is.na(CVPA_Gruppe),
+    !is.na(Staerke),
+    !is.na(Mittelwert_Inkonsistenz)
+  )
+
+
+#############################################################################################################
+#### Nur Personen mit allen drei Stärkebedingungen behalten #################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke3_cvpa <-
+  inkonsistenz_staerke3_cvpa %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 3
+  ) %>%
+  ungroup()
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+# Jede Person sollte genau drei Zeilen besitzen.
+
+table(
+  inkonsistenz_staerke3_cvpa$number
+)
+
+
+# Anzahl Personen je CVPA-Gruppe
+
+inkonsistenz_staerke3_cvpa %>%
+  distinct(
+    number,
+    CVPA_Gruppe
+  ) %>%
+  count(
+    CVPA_Gruppe
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+zeige_und_speichere_grafik(
+  ggplot(
+    inkonsistenz_staerke3_cvpa,
+    aes(
+      x = Staerke,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+    geom_boxplot(
+      position = position_dodge(
+        width = 0.8
+      )
+    ) +
+    scale_y_continuous(
+      breaks = 1:5,
+      limits = c(1, 5)
+    ) +
+    labs(
+      title = "Inkonsistenzbewertung nach Stärke und CVPA",
+      subtitle = "Baseline, leichte und starke stilistische Abweichung",
+      x = "Stärke der stilistischen Abweichung",
+      y = "Wahrgenommene stilistische Inkonsistenz",
+      fill = "CVPA-Gruppe"
+    ) +
+    theme_minimal(),
+  "Inkonsistenzbewertung nach Stärke und CVPA"
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke3_cvpa <-
+  inkonsistenz_staerke3_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Staerke
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_staerke3_cvpa
+
+
+# Interpretation:
+#
+# Relevant ist nun, wie stark die Inkonsistenz
+# innerhalb jeder CVPA-Gruppe zunimmt:
+#
+#
+# CVPA unter Mittelwert:
+#
+# leicht - baseline
+# stark - leicht
+# stark - baseline
+#
+#
+# CVPA über Mittelwert:
+#
+# leicht - baseline
+# stark - leicht
+# stark - baseline
+#
+#
+# Wenn sich diese Veränderungen zwischen den
+# beiden CVPA-Gruppen deutlich unterscheiden,
+# deutet dies deskriptiv auf einen möglichen
+# Interaktionseffekt zwischen Stärke und CVPA hin.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+anova_staerke3_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_staerke3_cvpa
+)
+speichere_p_werte(anova_staerke3_cvpa, "anova_staerke3_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+residuen_staerke3_cvpa <- residuals(
+  anova_staerke3_cvpa$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke3_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_14 <- shapiro.test(
+  as.numeric(
+    residuen_staerke3_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_14, "shapiro_auto_14")
+shapiro_auto_14
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke3_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+# Interpretation:
+
+# p < .05:
+# -> Normalverteilungsannahme formal verletzt
+#
+#
+# Zusätzlich wird der QQ-Plot beurteilt.
+# Der Shapiro-Wilk-Wert liegt mit W = 0.98274
+# jedoch relativ nahe bei 1.
+#
+# Zusätzlich zeigt der QQ-Plot keine gravierenden
+# oder systematischen Abweichungen von der
+# Normalverteilung.
+#
+# Die Abweichung wird daher als gering und für
+# die Durchführung der Factorial Mixed ANOVA
+# als vertretbar beurteilt.
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# Die Varianzhomogenität zwischen den beiden
+# CVPA-Gruppen wird für jede Stufe des
+# Within-Subjects-Faktors separat geprüft.
+
+
+#### Baseline ####
+
+levene_auto_20 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke3_cvpa %>%
+    filter(
+      Staerke == "baseline"
+    )
+)
+speichere_p_werte(levene_auto_20, "levene_auto_20")
+levene_auto_20
+
+
+#### Leichte Abweichung ####
+
+levene_auto_21 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke3_cvpa %>%
+    filter(
+      Staerke == "leicht"
+    )
+)
+speichere_p_werte(levene_auto_21, "levene_auto_21")
+levene_auto_21
+
+
+#### Starke Abweichung ####
+
+levene_auto_22 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke3_cvpa %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_22, "levene_auto_22")
+levene_auto_22
+
+
+# Interpretation:
+#
+# p > .05:
+# -> Varianzhomogenität gegeben
+#
+# Insgesamt ist die Varianzhomogenität
+# für alle drei Stärkebedingungen erfüllt.
+
+
+#############################################################################################################
+#### 3. Sphärizität #########################################################################################
+#############################################################################################################
+
+
+# Anders als bei einem Within-Faktor mit nur zwei
+# Stufen besitzt Stärke hier drei Stufen:
+#
+# baseline
+# leicht
+# stark
+#
+# Daher muss die Sphärizitätsannahme geprüft werden.
+
+
+summary_anova_staerke3_cvpa <- summary(
+  anova_staerke3_cvpa
+)
+speichere_p_werte(summary_anova_staerke3_cvpa, "summary_anova_staerke3_cvpa")
+summary_anova_staerke3_cvpa
+
+# INterpretation
+# Mauchly-Test für Stärke:
+#
+# W = 0.96639
+# p = .10476
+#
+# Da p > .05, wird H0 nicht verworfen.
+#
+# Es gibt keinen statistisch signifikanten Hinweis
+# auf eine Verletzung der Sphärizitätsannahme.
+#
+# -> Sphärizität ist gegeben.
+#
+#
+# Auch für die Interaktion
+# CVPA-Gruppe x Stärke gilt:
+#
+# W = 0.96639
+# p = .10476
+#
+# -> ebenfalls keine Verletzung der Sphärizität.
+#
+#
+# Daher ist keine Greenhouse-Geisser-
+# oder Huynh-Feldt-Korrektur erforderlich.
+
+
+# Interpretation der 3 x 2 Factorial Mixed ANOVA:
+#
+# 1. Haupteffekt CVPA-Gruppe:
+#
+
+#
+# Da p > .05, liegt kein signifikanter
+# Haupteffekt der CVPA-Gruppe vor.
+#
+# Personen mit einem CVPA unterhalb und oberhalb
+# des Gesamtmittelwerts unterscheiden sich über
+# die drei Stärkebedingungen hinweg insgesamt
+# nicht signifikant in ihrer wahrgenommenen
+# stilistischen Inkonsistenz.
+#
+#
+# 2. Haupteffekt Stärke:
+
+#
+# Da p < .05, liegt ein signifikanter
+# Haupteffekt der Stärke vor.
+#
+# Die wahrgenommene stilistische Inkonsistenz
+# unterscheidet sich somit signifikant zwischen
+# mindestens zwei der drei Bedingungen:
+#
+# - minimalistische Baseline
+# - leichte stilistische Abweichung
+# - starke stilistische Abweichung
+#
+# Welche Bedingungen sich konkret voneinander
+# unterscheiden, muss anhand der deskriptiven
+# Kennwerte bzw. durch paarweise Vergleiche
+# untersucht werden.
+#
+#
+# 3. Interaktion CVPA-Gruppe x Stärke:
+
+#
+# Da p > .05, liegt kein signifikanter
+# Interaktionseffekt zwischen CVPA-Gruppe
+# und Stärke vor.
+#
+# Die Veränderung der wahrgenommenen
+# Inkonsistenz über Baseline, leichte und
+# starke stilistische Abweichung unterscheidet
+# sich somit nicht signifikant zwischen
+# Personen mit einem CVPA unterhalb und
+# oberhalb des Gesamtmittelwerts.
+#
+#
+# Fazit:
+#
+# Die Stärke der stilistischen Abweichung hat
+# einen deutlichen Einfluss auf die wahrgenommene
+# stilistische Inkonsistenz.
+#
+# Es gibt jedoch keinen Hinweis darauf, dass
+# dieser Stärkeeffekt vom CVPA der Personen
+# abhängt.
+
+
+
+#############################################################################################################
+#### Unterschiede nach CVPA: Stärke Schuh ###################################################################
+#############################################################################################################
+
+
+# Fragestellung:
+#
+# Unterscheidet sich der Einfluss einer starken stilistischen
+# Abweichung durch den Schuh auf die wahrgenommene Inkonsistenz
+# zwischen Personen mit einem CVPA unterhalb und oberhalb
+# des Gesamtmittelwerts?
+#
+#
+# DV:
+# Wahrgenommene stilistische Inkonsistenz
+#
+#
+# Faktor 1: Stärke
+#
+# baseline:
+# Min-Baseline
+#
+# stark:
+# Schuh-stark-dezentral
+#
+# -> Within-Subjects-Faktor,
+#    da jede Person beide Outfits bewertet hat.
+#
+#
+# Faktor 2: CVPA-Gruppe
+#
+# unter Mittelwert
+# über Mittelwert
+#
+# -> Between-Subjects-Faktor
+#
+#
+# Daher:
+# -> 2 x 2 Factorial Mixed ANOVA
+#
+#
+# Besonders relevant ist der Interaktionseffekt:
+#
+# Staerke x CVPA_Gruppe
+#
+# Dieser prüft, ob sich der Einfluss der starken
+# stilistischen Abweichung durch den Schuh zwischen
+# Personen mit unterschiedlichem CVPA unterscheidet.
+
+
+#############################################################################################################
+#### Daten vorbereiten ######################################################################################
+#############################################################################################################
+
+
+inkonsistenz_staerke_schuh_cvpa <- salienz_reshaped %>%
+  filter(
+    Condition %in% c(
+      "Min-Baseline",
+      "Schuh-stark-dezentral"
+    )
+  ) %>%
+  mutate(
+    
+    # Faktor Stärke bilden
+    
+    Staerke = case_when(
+      Condition == "Min-Baseline" ~ "baseline",
+      Condition == "Schuh-stark-dezentral" ~ "stark"
+    ),
+    
+    
+    # CVPA-Gruppe als Faktor definieren
+    
+    CVPA_Gruppe = factor(
+      CVPA_Gruppe,
+      levels = c(
+        "unter Mittelwert",
+        "über Mittelwert"
+      )
+    ),
+    
+    
+    # Stärke als Faktor definieren
+    
+    Staerke = factor(
+      Staerke,
+      levels = c(
+        "baseline",
+        "stark"
+      )
+    )
+  ) %>%
+  
+  filter(
+    !is.na(CVPA_Gruppe),
+    !is.na(Staerke),
+    !is.na(Mittelwert_Inkonsistenz)
+  )
+
+
+#############################################################################################################
+#### Nur Personen mit beiden Bedingungen behalten ###########################################################
+#############################################################################################################
+
+
+# Eine Person wird nur berücksichtigt,
+# wenn sowohl die Baseline als auch der
+# stark abweichende Schuh bewertet wurden.
+
+inkonsistenz_staerke_schuh_cvpa <-
+  inkonsistenz_staerke_schuh_cvpa %>%
+  group_by(number) %>%
+  filter(
+    n_distinct(Staerke) == 2
+  ) %>%
+  ungroup()
+
+
+#############################################################################################################
+#### Kontrolle ###############################################################################################
+#############################################################################################################
+
+
+# Jede Person sollte genau zwei Zeilen besitzen.
+
+table(
+  inkonsistenz_staerke_schuh_cvpa$number
+)
+
+
+# Anzahl Personen je CVPA-Gruppe
+
+inkonsistenz_staerke_schuh_cvpa %>%
+  distinct(
+    number,
+    CVPA_Gruppe
+  ) %>%
+  count(
+    CVPA_Gruppe
+  )
+
+
+#############################################################################################################
+#### Deskriptive Exploration: Boxplots ######################################################################
+#############################################################################################################
+
+
+#### Boxplot 1: Minimalistische Baseline ####
+
+boxplot_staerke_schuh_baseline_cvpa <-
+  inkonsistenz_staerke_schuh_cvpa %>%
+  filter(
+    Staerke == "baseline"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Minimalistische Baseline",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_schuh_baseline_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_staerke_schuh_baseline_cvpa
+)
+
+
+#### Boxplot 2: starker stilistisch abweichender Schuh ####
+
+boxplot_staerke_schuh_stark_cvpa <-
+  inkonsistenz_staerke_schuh_cvpa %>%
+  filter(
+    Staerke == "stark"
+  ) %>%
+  ggplot(
+    aes(
+      x = CVPA_Gruppe,
+      y = Mittelwert_Inkonsistenz,
+      fill = CVPA_Gruppe
+    )
+  ) +
+  geom_boxplot() +
+  scale_y_continuous(
+    breaks = 1:5,
+    limits = c(1, 5)
+  ) +
+  labs(
+    title = "Inkonsistenzbewertung nach CVPA",
+    subtitle = "Stark stilistisch abweichender Schuh: dezentral",
+    x = "CVPA-Gruppe",
+    y = "Wahrgenommene stilistische Inkonsistenz"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+speichere_grafik(boxplot_staerke_schuh_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
+
+print(
+  boxplot_staerke_schuh_stark_cvpa
+)
+
+
+#############################################################################################################
+#### Deskriptive Kennwerte ##################################################################################
+#############################################################################################################
+
+
+deskriptiv_staerke_schuh_cvpa <-
+  inkonsistenz_staerke_schuh_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Staerke
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE), .groups = "drop")
+deskriptiv_staerke_schuh_cvpa
+
+
+#############################################################################################################
+#### Interpretation der deskriptiven Kennwerte ##############################################################
+#############################################################################################################
+
+
+# CVPA unter Mittelwert:
+#
+# Baseline:
+# M = 1.91, SD = 0.87
+#
+# Starker stilistisch abweichender Schuh:
+# M = 2.16, SD = 0.84
+#
+# Differenz:
+#
+# 2.16 - 1.91 = 0.25
+#
+#
+# CVPA über Mittelwert:
+#
+# Baseline:
+# M = 1.66, SD = 0.69
+#
+# Starker stilistisch abweichender Schuh:
+# M = 2.00, SD = 0.83
+#
+# Differenz:
+#
+# 2.00 - 1.66 = 0.34
+#
+#
+# In beiden CVPA-Gruppen wird das Outfit mit dem
+# stark stilistisch abweichenden Schuh deskriptiv
+# inkonsistenter wahrgenommen als die minimalistische
+# Baseline.
+#
+# Der Anstieg fällt bei Personen mit einem CVPA
+# oberhalb des Gesamtmittelwerts etwas stärker aus:
+#
+# unter Mittelwert: +0.25
+# über Mittelwert:  +0.34
+#
+# Der Unterschied zwischen den beiden Effekten
+# beträgt jedoch lediglich:
+#
+# 0.34 - 0.25 = 0.09
+#
+# Deskriptiv deutet dies nur auf einen sehr kleinen
+# möglichen Interaktionseffekt zwischen CVPA-Gruppe
+# und Stärke hin.
+#
+# Ob dieser Unterschied statistisch signifikant ist,
+# wird im Folgenden inferenzstatistisch geprüft.
+
+
+#############################################################################################################
+#### Annahmen der Factorial Mixed ANOVA #####################################################################
+#############################################################################################################
+
+
+#############################################################################################################
+#### Modell zunächst schätzen ###############################################################################
+#############################################################################################################
+
+
+# Das Modell wird zunächst geschätzt,
+# damit anschließend die Residuen geprüft werden können.
+
+anova_staerke_schuh_cvpa <- aov_ez(
+  id = "number",
+  dv = "Mittelwert_Inkonsistenz",
+  within = "Staerke",
+  between = "CVPA_Gruppe",
+  data = inkonsistenz_staerke_schuh_cvpa
+)
+speichere_p_werte(anova_staerke_schuh_cvpa, "anova_staerke_schuh_cvpa")
+
+
+#############################################################################################################
+#### 1. Normalverteilung der Residuen ########################################################################
+#############################################################################################################
+
+
+# Residuen extrahieren
+
+residuen_staerke_schuh_cvpa <- residuals(
+  anova_staerke_schuh_cvpa$lm
+)
+
+
+#### Density Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke_schuh_cvpa
+      )
+    ),
+    aes(
+      x = Residuen
+    )
+  ) +
+    geom_density() +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke Schuh × CVPA",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal(),
+  "Density Plot der Residuen"
+)
+
+
+#### Shapiro-Wilk-Test ####
+
+
+# H0:
+# Die Residuen sind normalverteilt.
+#
+# H1:
+# Die Residuen sind nicht normalverteilt.
+
+shapiro_auto_15 <- shapiro.test(
+  as.numeric(
+    residuen_staerke_schuh_cvpa
+  )
+)
+speichere_p_werte(shapiro_auto_15, "shapiro_auto_15")
+shapiro_auto_15
+
+
+# Interpretation:
+# Da p < .05, wird H0 verworfen.
+#
+# Die Residuen weichen statistisch signifikant
+# von einer Normalverteilung ab.
+#
+# Im Gegensatz zu den vorherigen Analysen zeigt
+# auch der QQ-Plot deutliche Abweichungen von
+# der Referenzlinie.
+#
+# Die Normalverteilungsannahme wird daher
+# nicht als ausreichend erfüllt beurteilt.
+#
+# Aus diesem Grund wird die klassische
+# Factorial Mixed ANOVA nicht interpretiert.
+#
+# Stattdessen wird eine robuste Between-Within-ANOVA
+# durchgeführt.
+
+
+#### QQ-Plot ####
+
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(
+      Residuen = as.numeric(
+        residuen_staerke_schuh_cvpa
+      )
+    ),
+    aes(
+      sample = Residuen
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Factorial Mixed ANOVA: Stärke Schuh × CVPA",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal(),
+  "QQ-Plot der Residuen"
+)
+
+
+#############################################################################################################
+#### 2. Varianzhomogenität ##################################################################################
+#############################################################################################################
+
+
+# CVPA_Gruppe ist der Between-Subjects-Faktor.
+#
+# Daher wird für beide Bedingungen geprüft,
+# ob die Varianzen zwischen den beiden
+# CVPA-Gruppen homogen sind.
+
+
+#### Minimalistische Baseline ####
+
+levene_auto_23 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke_schuh_cvpa %>%
+    filter(
+      Staerke == "baseline"
+    )
+)
+speichere_p_werte(levene_auto_23, "levene_auto_23")
+levene_auto_23
+
+
+#### Starker stilistisch abweichender Schuh ####
+
+levene_auto_24 <- leveneTest(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+  data = inkonsistenz_staerke_schuh_cvpa %>%
+    filter(
+      Staerke == "stark"
+    )
+)
+speichere_p_werte(levene_auto_24, "levene_auto_24")
+levene_auto_24
+
+
+# Interpretation:
+#
+# p > .05:
+# -> Varianzhomogenität gegeben
+#
+# Die Varianzhomogenität ist somit für beide
+# Bedingungen erfüllt.
+
+
+#############################################################################################################
+#### Robuste deskriptive Kennwerte ##########################################################################
+#############################################################################################################
+
+
+# Da die robuste ANOVA mit getrimmten Mittelwerten arbeitet,
+# werden zusätzlich die 20 % getrimmten Mittelwerte berechnet.
+
+deskriptiv_staerke_schuh_cvpa_robust <-
+  inkonsistenz_staerke_schuh_cvpa %>%
+  group_by(
+    CVPA_Gruppe,
+    Staerke
+  ) %>%
+  summarise(
+    
+    n = n(),
+    
+    Getrimmter_Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      trim = 0.20,
+      na.rm = TRUE
+    ),
+    
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+deskriptiv_staerke_schuh_cvpa_robust
+
+
+#############################################################################################################
+#### Robuste 2 x 2 Factorial Mixed ANOVA: Stärke Schuh x CVPA ###############################################
+#############################################################################################################
+
+
+library(WRS2)
+
+
+robust_anova_staerke_schuh_cvpa <- bwtrim(
+  Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
+  id = number,
+  data = inkonsistenz_staerke_schuh_cvpa,
+  tr = 0.20
+)
+
+
+robust_anova_staerke_schuh_cvpa
+
+#### Interpretation der robusten Mixed ANOVA
+
+
+
+
+
+
+
+#############################################################################################################
+#### Ermüdungseffekt ########################################################################################
+#############################################################################################################
+
+# Wird ein Outfit anders bewertet, wenns als erstes vs als letztes gezeigt wird?
+
+# Gucken was bei Randomisierung gespeichert wird, die 10 sek Bilder!
+unique(salienz$Randomisierung_1)
+unique(salienz$Randomisierung_2)
+unique(salienz$Randomisierung_3)
+unique(salienz$Randomisierung_4)
+unique(salienz$Randomisierung_5)
+
+# funktion zum Benennen der unipark-Zahlen
+randomisierung_zu_condition <- function(x) {
+  x <- as.character(x)
+  case_when(
+    x == "7698430" ~ "Jacke-stark-dezentral",
+    x == "7698432" ~ "Schuh-stark-dezentral",
+    x == "7698426" ~ "Jacke-stark-zentral",
+    x == "7698437" ~ "Jacke-leicht-dezentral",
+    x == "7698434" ~ "Min-Baseline",
+    TRUE ~ NA_character_)}
+
+# Erstes und letztes Outfit pro TN bestimmen
+salienz_reshaped <- salienz_reshaped %>%
+  mutate(
+    Erstes_Outfit = randomisierung_zu_condition(Randomisierung_1),
+    Letztes_Outfit = randomisierung_zu_condition(Randomisierung_5))
+
+# Rechnen ob Zuordnung funktioniert hat
+salienz_reshaped %>%
+  distinct(number, Erstes_Outfit) %>%
+  count(Erstes_Outfit)
+salienz_reshaped %>%
+  distinct(number, Letztes_Outfit) %>%
+  count(Letztes_Outfit)
+
+# hier müssen dann 270 = 135 + 135 Zeilen rauskommen
+ermuedung_plot <- salienz_reshaped %>%
+  mutate(
+    Reihenfolge = case_when(
+      Condition == Erstes_Outfit ~ "Als erstes gezeigt",
+      Condition == Letztes_Outfit ~ "Als letztes gezeigt",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(
+    !is.na(Reihenfolge),
+    !is.na(Mittelwert_Inkonsistenz)
+  ) %>%
+  mutate(
+    Reihenfolge = factor(
+      Reihenfolge,
+      levels = c(
+        "Als erstes gezeigt",
+        "Als letztes gezeigt"
+      )
+    )
+  )
+
+# deskriptiv angucken
+deskriptiv_ermuedung <- ermuedung_plot %>%
+  group_by(
+    Condition,
+    Reihenfolge
+  ) %>%
+  summarise(
+    n = n(),
+    Median = median(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    IQR = IQR(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    Mittelwert = mean(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    SD = sd(
+      Mittelwert_Inkonsistenz,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+print(deskriptiv_ermuedung)
+
+# boxplot
+outfit_namen <- c(
+  "Min-Baseline" = "Baseline",
+  "Jacke-leicht-dezentral" = "Jacke leicht dezentral",
+  "Jacke-stark-dezentral" = "Jacke stark dezentral",
+  "Jacke-stark-zentral" = "Jacke stark zentral",
+  "Schuh-stark-dezentral" = "Schuh stark dezentral"
+)
+
+boxplots_ermuedung <- list()
+
+for (outfit in conditions) {
+  
+  plot_daten <- ermuedung_plot %>%
+    filter(
+      Condition == outfit
+    )
+  
+  plot <- ggplot(
+    plot_daten,
+    aes(
+      x = Reihenfolge,
+      y = Mittelwert_Inkonsistenz,
+      fill = Reihenfolge
+    )
+  ) +
+    geom_boxplot(
+      width = 0.6
+    ) +
+    scale_fill_manual(
+      values = c(
+        "Als erstes gezeigt" = "#EED5B7",
+        "Als letztes gezeigt" = "#CDAA7D"
+      )
+    ) +
+    scale_y_continuous(
+      breaks = 1:5,
+      limits = c(1, 5)
+    ) +
+    labs(
+      title = paste(
+        "Inkonsistenzbewertung:",
+        outfit_namen[outfit]
+      ),
+      subtitle = "Als erstes vs. als letztes gezeigt",
+      x = "Position in der Befragung",
+      y = "Wahrgenommene stilistische Inkonsistenz"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      plot.subtitle = element_text(
+        hjust = 0.5
+      )
+    )
+  speichere_grafik(plot, paste0("Ermuedung_", outfit))
+  
+  boxplots_ermuedung[[outfit]] <- plot
+  
+  print(plot)
+}
+
+# Die deskriptive Analyse ergab keinen eindeutigen Hinweis auf einen systematischen Ermüdungseffekt. 
+# Die Inkonsistenzbewertungen der als erstes bzw. als letztes 
+# präsentierten Outfits unterschieden sich je nach Outfit in unterschiedliche Richtungen. Während die 
+# Inkonsistenzbewertung der stark zentral positionierten Jacke bei einer Präsentation am Ende niedriger ausfiel 
+# als bei einer Präsentation zu Beginn, zeigten drei der übrigen Outfits tendenziell höhere Bewertungen bei später 
+# Präsentation. Für die Baseline waren die Mittelwerte nahezu identisch. Insgesamt lässt sich daher deskriptiv 
+# kein konsistenter Reihenfolge- bzw. Ermüdungseffekt erkennen.
+# Die Inkonsistenz wurde bei Min-BAseline und stark zentraler Jacke beim letzten Bild schwächer wahrgenommen als ersten
+# Die inkonsistenz wurde bei den anderen beim letzten Bild stärker wahrgenommen als beim ersten
+
+
+
+#### Normalverteilung mit Shapiro-Wilk ########################################################################
+
+shapiro_ermuedung <- ermuedung_plot %>%
+  group_by(
+    Condition,
+    Reihenfolge
+  ) %>%
+  shapiro_test(
+    Mittelwert_Inkonsistenz
+  )
+print(shapiro_ermuedung)
+speichere_p_werte(shapiro_ermuedung, "shapiro_ermuedung")
+
+# Normalverteilung mit Plot
+zeige_und_speichere_grafik(
+  ggplot(
+    ermuedung_plot,
+    aes(
+      sample = Mittelwert_Inkonsistenz
+    )
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_grid(
+      Condition ~ Reihenfolge
+    ) +
+    labs(
+      title = "QQ-Plots der Inkonsistenzbewertung",
+      subtitle = "Erstes vs. letztes gezeigtes Outfit",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      plot.subtitle = element_text(
+        hjust = 0.5
+      )
+    ),
+  "QQ-Plots der Inkonsistenzbewertung"
+)
+
+#### Levene-Test ##############################################################################################
+levene_ermuedung <- ermuedung_plot %>%
+  group_by(
+    Condition
+  ) %>%
+  levene_test(
+    Mittelwert_Inkonsistenz ~ Reihenfolge
+  )
+
+print(levene_ermuedung)
+speichere_p_werte(levene_ermuedung, "levene_ermuedung")
+
+
+# Test für jedes Outfit automatisch wählen
+ergebnisse_ermuedung <- data.frame()
+
+
+for (outfit in conditions) {
+  
+  
+  #### Daten für aktuelles Outfit #############################################################################
+  
+  daten_outfit <- ermuedung_plot %>%
+    filter(
+      Condition == outfit
+    ) %>%
+    droplevels()
+  
+  
+  #### Gruppen einzeln speichern ##############################################################################
+  
+  zuerst <- daten_outfit %>%
+    filter(
+      Reihenfolge == "Als erstes gezeigt"
+    ) %>%
+    pull(
+      Mittelwert_Inkonsistenz
+    )
+  
+  
+  zuletzt <- daten_outfit %>%
+    filter(
+      Reihenfolge == "Als letztes gezeigt"
+    ) %>%
+    pull(
+      Mittelwert_Inkonsistenz
+    )
+  
+  
+  #### Normalverteilung prüfen #################################################################################
+  
+  shapiro_zuerst <- shapiro.test(
+    zuerst
+  )
+  speichere_p_werte(
+    shapiro_zuerst,
+    "shapiro_zuerst",
+    outfit
+  )
+  
+  shapiro_zuletzt <- shapiro.test(
+    zuletzt
+  )
+  speichere_p_werte(
+    shapiro_zuletzt,
+    "shapiro_zuletzt",
+    outfit
+  )
+  
+  
+  #### Varianzhomogenität prüfen ##############################################################################
+  
+  levene_result <- car::leveneTest(
+    Mittelwert_Inkonsistenz ~ Reihenfolge,
+    data = daten_outfit
+  )
+  
+  levene_p <- levene_result$`Pr(>F)`[1]
+  speichere_p_werte(
+    levene_result,
+    "levene_result",
+    outfit
+  )
+  
+  #### Passenden Hypothesentest auswählen #####################################################################
+  if (
+    shapiro_zuerst$p.value > 0.05 &&
+    shapiro_zuletzt$p.value > 0.05) {
+    
+    #### Normalverteilung gegeben ##############################################################################
+    if (levene_p > 0.05) {
+      
+      #### unabhängiger t-Test ##################################################################################
+      test_result <- t.test(
+        zuerst,
+        zuletzt,
+        paired = FALSE,
+        var.equal = TRUE,
+        alternative = "two.sided")
+      verwendeter_test <- "Unabhängiger t-Test"
+    } else {
+      
+      #### Welch-t-Test bei unterschiedlichen Varianzen #########################################################
+      
+      test_result <- t.test(
+        zuerst,
+        zuletzt,
+        paired = FALSE,
+        var.equal = FALSE,
+        alternative = "two.sided"
+      )
+      
+      verwendeter_test <- "Welch-t-Test"
+    }
+    
+    
+  } else {
+    
+    
+    #### Mann-Whitney-U-Test bei verletzter Normalverteilung ####################################################
+    
+    test_result <- wilcox.test(
+      zuerst,
+      zuletzt,
+      paired = FALSE,
+      alternative = "two.sided",
+      exact = FALSE
+    )
+    
+    verwendeter_test <- "Mann-Whitney-U-Test"
+  }
+  
+  speichere_p_werte(
+    test_result,
+    verwendeter_test,
+    outfit
+  )
+  
+  #### Ergebnisse speichern ####################################################################################
+  
+  ergebnisse_ermuedung <- rbind(
+    ergebnisse_ermuedung,
+    
+    data.frame(
+      Outfit = outfit,
+      
+      n_zuerst = length(zuerst),
+      n_zuletzt = length(zuletzt),
+      
+      Mittelwert_zuerst = mean(
+        zuerst,
+        na.rm = TRUE
+      ),
+      
+      Mittelwert_zuletzt = mean(
+        zuletzt,
+        na.rm = TRUE
+      ),
+      
+      Differenz = mean(
+        zuletzt,
+        na.rm = TRUE
+      ) -
+        mean(
+          zuerst,
+          na.rm = TRUE
+        ),
+      
+      Shapiro_p_zuerst =
+        shapiro_zuerst$p.value,
+      
+      Shapiro_p_zuletzt =
+        shapiro_zuletzt$p.value,
+      
+      Levene_p =
+        levene_p,
+      
+      Test =
+        verwendeter_test,
+      
+      Teststatistik =
+        unname(test_result$statistic),
+      
+      p_Wert =
+        test_result$p.value
+    ))}
+
+#### Holm-Korrektur für fünf Tests ############################################################################
+ergebnisse_ermuedung <- ergebnisse_ermuedung %>%
+  mutate(
+    
+    p_Wert_Holm = p.adjust(
+      p_Wert,
+      method = "holm"
+    ),
+    
+    Signifikant_nach_Holm = ifelse(
+      p_Wert_Holm < 0.05,
+      "Ja",
+      "Nein"
+    )
+  )
+
+# Die Holm-korrigierten p-Werte entstehen erst an dieser Stelle
+# und werden deshalb auch erst jetzt an die p-Wert-Tabelle angehängt.
+for (i in seq_len(nrow(ergebnisse_ermuedung))) {
+  speichere_p_wert_einzeln(
+    objektname = "ergebnisse_ermuedung",
+    bestandteil = "Holm-Korrektur",
+    zeile = ergebnisse_ermuedung$Outfit[i],
+    p_typ = "p_Wert_Holm",
+    p_wert = ergebnisse_ermuedung$p_Wert_Holm[i]
+  )
+}
+
+print(ergebnisse_ermuedung)
+# Für die stark zentral positionierte Jacke zeigte sich zwar deskriptiv der größte 
+# Unterschied zwischen einer Präsentation zu Beginn (M = 3,74) und am Ende (M = 3,17) der Befragung. 
+# Der zunächst beobachtete Unterschied war ohne Korrektur statistisch signifikant (p = .033), 
+# bestand jedoch nach Holm-Korrektur für multiples Testen nicht mehr (p_adj = .163).
+# Es ergeben sich keine statistisch signifikanten Hinweise darauf, dass die Position 
+# eines Outfits zu Beginn bzw. am Ende der Befragung dessen Inkonsistenzbewertung beeinflusst.
+
+
+
+
+
+
+#############################################################################################################
+#### Mediation ##############################################################################################
+#############################################################################################################
+
+
+
+
+
+
+
+
+
+
+#############################################################################################################
+#### Ausblick ###############################################################################################
+#############################################################################################################
+
+
+
+
+
+
+
+
+
+
+###############################################################################################################
+#### Alle berechneten p-Werte speichern #######################################################################
+###############################################################################################################
+
+# Die Tabelle ist bereits in Berechnungsreihenfolge aufgebaut.
+# Es wird hier ausdrücklich NICHT mehr mit ls() nach Objektnamen gesucht,
+# da ls() alphabetisch sortieren würde.
+print(p_werte_tabelle)
+
+write.csv2(
+  p_werte_tabelle,
+  "p_Werte_gesamt.csv",
+  row.names = FALSE,
+  fileEncoding = "UTF-8"
+)
+
+
+
+
