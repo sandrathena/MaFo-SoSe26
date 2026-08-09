@@ -2882,430 +2882,236 @@ anova_staerke3_geschlecht
 
 
 
-#### CVPA Unterschiede#######################################################################################
-
 #############################################################################################################
-#### CVPA-Mittelwert berechnen und Personen in zwei Gruppen einteilen #######################################
+#### CVPA-Unterschiede #######################################################################################
 #############################################################################################################
 
-
-
-#############################################################################################################
-#### Individuellen CVPA-Mittelwert berechnen ################################################################
-#############################################################################################################
-
-
-# Für jede Person wird der Mittelwert aus den neun
-# CVPA-Items berechnet.
-#
-# Da die CVPA-Items personenbezogen sind, besitzt eine
-# Person in allen fünf Outfit-Zeilen denselben CVPA-Wert.
+#### CVPA-Mittelwert und Gruppen #############################################################################
 
 salienz_reshaped <- salienz_reshaped %>%
-  mutate(
-    Mittelwert_CVPA = rowMeans(
-      across(
-        CVPA1:CVPA9
-      ),
-      na.rm = TRUE
-    )
-  )
-
-
-#############################################################################################################
-#### Gesamtmittelwert des CVPA berechnen ####################################################################
-#############################################################################################################
-
-
-# Jede Person darf für die Berechnung des Gesamtmittelwerts
-# nur einmal berücksichtigt werden.
+  mutate(Mittelwert_CVPA = rowMeans(across(CVPA1:CVPA9), na.rm = TRUE))
 
 cvpa_personen <- salienz_reshaped %>%
-  distinct(
-    number,
-    Mittelwert_CVPA
-  )
+  distinct(number, Mittelwert_CVPA)
 
-
-# Gesamtmittelwert aller Personen berechnen
-
-cvpa_gesamtmittelwert <- mean(
-  cvpa_personen$Mittelwert_CVPA,
-  na.rm = TRUE
-)
-
-
-# Cut-off anzeigen
-
+cvpa_gesamtmittelwert <- mean(cvpa_personen$Mittelwert_CVPA, na.rm = TRUE)
 cvpa_gesamtmittelwert
-
-
-#############################################################################################################
-#### Personen anhand des CVPA-Mittelwerts in zwei Gruppen einteilen #########################################
-#############################################################################################################
-
 
 cvpa_personen <- cvpa_personen %>%
   mutate(
     CVPA_Gruppe = case_when(
-      
-      Mittelwert_CVPA < cvpa_gesamtmittelwert ~
-        "unter Mittelwert",
-      
-      Mittelwert_CVPA > cvpa_gesamtmittelwert ~
-        "über Mittelwert",
-      
-      # Falls tatsächlich jemand exakt auf dem
-      # Gesamtmittelwert liegt:
-      Mittelwert_CVPA == cvpa_gesamtmittelwert ~
-        "genau Mittelwert"
+      Mittelwert_CVPA < cvpa_gesamtmittelwert ~ "unter Mittelwert",
+      Mittelwert_CVPA > cvpa_gesamtmittelwert ~ "über Mittelwert",
+      Mittelwert_CVPA == cvpa_gesamtmittelwert ~ "genau Mittelwert"
     )
   )
 
-
-#############################################################################################################
-#### Gruppengrößen kontrollieren ############################################################################
-#############################################################################################################
-
-
-cvpa_personen %>%
-  count(
-    CVPA_Gruppe
-  )
-
-
-#############################################################################################################
-#### CVPA-Gruppe wieder an salienz_reshaped anhängen ########################################################
-#############################################################################################################
-
+cvpa_personen %>% count(CVPA_Gruppe)
 
 salienz_reshaped <- salienz_reshaped %>%
   left_join(
-    cvpa_personen %>%
-      select(
-        number,
-        CVPA_Gruppe
-      ),
+    cvpa_personen %>% select(number, CVPA_Gruppe),
     by = "number"
   )
 
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
 salienz_reshaped %>%
-  distinct(
-    number,
-    Mittelwert_CVPA,
-    CVPA_Gruppe
-  ) %>%
-  count(
-    CVPA_Gruppe
-  )
-
-# 63 unter Mittelwert
-# 72 überm Mittelwert
+  distinct(number, Mittelwert_CVPA, CVPA_Gruppe) %>%
+  count(CVPA_Gruppe)
 
 
-
-################################ Position -###############
 #############################################################################################################
-#### Daten vorbereiten ######################################################################################
+#### Hilfsfunktionen #########################################################################################
 #############################################################################################################
 
+bereite_cvpa_daten_vor <- function(conditions, faktor, zuordnung, stufen) {
+  salienz_reshaped %>%
+    filter(Condition %in% conditions) %>%
+    mutate(
+      "{faktor}" := unname(zuordnung[as.character(Condition)]),
+      CVPA_Gruppe = factor(
+        CVPA_Gruppe,
+        levels = c("unter Mittelwert", "über Mittelwert")
+      ),
+      "{faktor}" := factor(.data[[faktor]], levels = stufen)
+    ) %>%
+    filter(
+      !is.na(CVPA_Gruppe),
+      !is.na(.data[[faktor]]),
+      !is.na(Mittelwert_Inkonsistenz)
+    ) %>%
+    group_by(number) %>%
+    filter(n_distinct(.data[[faktor]]) == length(stufen)) %>%
+    ungroup()
+}
 
-inkonsistenz_position_cvpa <- salienz_reshaped %>%
-  filter(
-    Condition %in% c(
-      "Jacke-stark-dezentral",
-      "Jacke-stark-zentral"
-    )
-  ) %>%
-  mutate(
-    
-    # Faktor Position bilden
-    
-    Position = case_when(
-      Condition == "Jacke-stark-dezentral" ~ "dezentral",
-      Condition == "Jacke-stark-zentral" ~ "zentral"
-    ),
-    
-    
-    # CVPA-Gruppe als Faktor definieren
-    
-    CVPA_Gruppe = factor(
-      CVPA_Gruppe,
-      levels = c(
-        "unter Mittelwert",
-        "über Mittelwert"
+erstelle_cvpa_boxplot <- function(data, faktor, stufe, subtitle) {
+  data %>%
+    filter(.data[[faktor]] == stufe) %>%
+    ggplot(
+      aes(
+        x = CVPA_Gruppe,
+        y = Mittelwert_Inkonsistenz,
+        fill = CVPA_Gruppe
       )
-    ),
-    
-    
-    # Position als Faktor definieren
-    
-    Position = factor(
-      Position,
-      levels = c(
-        "dezentral",
-        "zentral"
-      )
+    ) +
+    geom_boxplot() +
+    scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
+    labs(
+      title = "Inkonsistenzbewertung nach CVPA",
+      subtitle = subtitle,
+      x = "CVPA-Gruppe",
+      y = "Wahrgenommene stilistische Inkonsistenz"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+}
+
+deskriptiv_cvpa <- function(data, faktor) {
+  data %>%
+    group_by(CVPA_Gruppe, !!rlang::sym(faktor)) %>%
+    summarise(
+      n = n(),
+      Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      Mittelwert = mean(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      SD = sd(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      .groups = "drop"
     )
-  ) %>%
-  
-  # Nur vollständige Werte berücksichtigen
-  
-  filter(
-    !is.na(CVPA_Gruppe),
-    !is.na(Position),
-    !is.na(Mittelwert_Inkonsistenz)
+}
+
+deskriptiv_cvpa_robust <- function(data, faktor) {
+  data %>%
+    group_by(CVPA_Gruppe, !!rlang::sym(faktor)) %>%
+    summarise(
+      n = n(),
+      Getrimmter_Mittelwert = mean(
+        Mittelwert_Inkonsistenz,
+        trim = 0.20,
+        na.rm = TRUE
+      ),
+      Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+schaetze_cvpa_anova <- function(data, faktor, objektname) {
+  modell <- aov_ez(
+    id = "number",
+    dv = "Mittelwert_Inkonsistenz",
+    within = faktor,
+    between = "CVPA_Gruppe",
+    data = data
   )
+  speichere_p_werte(modell, objektname)
+  modell
+}
+
+zeige_residuenplots_cvpa <- function(residuen, subtitle) {
+  zeige_und_speichere_grafik(
+    ggplot(
+      data.frame(Residuen = as.numeric(residuen)),
+      aes(x = Residuen)
+    ) +
+      geom_density() +
+      labs(
+        title = "Density Plot der Residuen",
+        subtitle = subtitle,
+        x = "Residuen",
+        y = "Dichte"
+      ) +
+      theme_minimal(),
+    "Density Plot der Residuen"
+  )
+  
+  zeige_und_speichere_grafik(
+    ggplot(
+      data.frame(Residuen = as.numeric(residuen)),
+      aes(sample = Residuen)
+    ) +
+      stat_qq() +
+      stat_qq_line() +
+      labs(
+        title = "QQ-Plot der Residuen",
+        subtitle = subtitle,
+        x = "Theoretische Quantile",
+        y = "Beobachtete Quantile"
+      ) +
+      theme_minimal(),
+    "QQ-Plot der Residuen"
+  )
+}
+
+shapiro_residuen_cvpa <- function(residuen, objektname) {
+  test <- shapiro.test(as.numeric(residuen))
+  speichere_p_werte(test, objektname)
+  test
+}
+
+levene_cvpa <- function(data, faktor, stufe, objektname) {
+  test <- leveneTest(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
+    data = data %>% filter(.data[[faktor]] == stufe)
+  )
+  speichere_p_werte(test, objektname)
+  test
+}
 
 
 #############################################################################################################
-#### Nur Personen mit beiden Positionsbedingungen behalten #################################################
+#### 1. Position × CVPA ######################################################################################
 #############################################################################################################
 
-
-# Eine Person wird nur berücksichtigt,
-# wenn für sie sowohl die dezentrale als auch
-# die zentrale Bedingung vorhanden ist.
-
-inkonsistenz_position_cvpa <-
-  inkonsistenz_position_cvpa %>%
-  group_by(number) %>%
-  filter(
-    n_distinct(Position) == 2
-  ) %>%
-  ungroup()
-
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
-# Jede Person sollte genau zwei Zeilen besitzen.
-
-table(
-  inkonsistenz_position_cvpa$number
+inkonsistenz_position_cvpa <- bereite_cvpa_daten_vor(
+  conditions = c("Jacke-stark-dezentral", "Jacke-stark-zentral"),
+  faktor = "Position",
+  zuordnung = c(
+    "Jacke-stark-dezentral" = "dezentral",
+    "Jacke-stark-zentral" = "zentral"
+  ),
+  stufen = c("dezentral", "zentral")
 )
 
+table(inkonsistenz_position_cvpa$number)
 
-
-#############################################################################################################
-#### Deskriptive Exploration: Boxplots ######################################################################
-#############################################################################################################
-
-
-#### Boxplot 1: dezentrale Position ####
-
-boxplot_position_dezentral_cvpa <-
-  inkonsistenz_position_cvpa %>%
-  filter(
-    Position == "dezentral"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Starke stilistische Abweichung: Jacke dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
+boxplot_position_dezentral_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_position_cvpa,
+  "Position",
+  "dezentral",
+  "Starke stilistische Abweichung: Jacke dezentral"
+)
 speichere_grafik(boxplot_position_dezentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_position_dezentral_cvpa)
 
-print(
-  boxplot_position_dezentral_cvpa
+boxplot_position_zentral_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_position_cvpa,
+  "Position",
+  "zentral",
+  "Starke stilistische Abweichung: Jacke zentral"
 )
-
-
-#### Boxplot 2: zentrale Position ####
-
-boxplot_position_zentral_cvpa <-
-  inkonsistenz_position_cvpa %>%
-  filter(
-    Position == "zentral"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Starke stilistische Abweichung: Jacke zentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
 speichere_grafik(boxplot_position_zentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_position_zentral_cvpa)
 
-print(
-  boxplot_position_zentral_cvpa
+deskriptiv_position_cvpa <- deskriptiv_cvpa(
+  inkonsistenz_position_cvpa,
+  "Position"
 )
-
-
-#############################################################################################################
-#### Deskriptive Kennwerte ##################################################################################
-#############################################################################################################
-
-
-deskriptiv_position_cvpa <-
-  inkonsistenz_position_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Position
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
 deskriptiv_position_cvpa
-# Interpretation:
-#
-# Sowohl bei Personen mit einem CVPA unterhalb als auch
-# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
-# stilistische Inkonsistenz von der dezentralen zur
-# zentralen Position.
-#
-#
-# CVPA unter Mittelwert:
-#
-# Dezentral:
-# M = 3.16, SD = 0.89
-#
-# Zentral:
-# M = 3.47, SD = 0.94
-#
-# Differenz:
-# 3.47 - 3.16 = 0.31
-#
-#
-# CVPA über Mittelwert:
-#
-# Dezentral:
-# M = 3.05, SD = 0.94
-#
-# Zentral:
-# M = 3.59, SD = 1.04
-#
-# Differenz:
-# 3.59 - 3.05 = 0.54
-#
-#
-# Der Positionseffekt fällt damit bei Personen mit
-# einem CVPA über dem Gesamtmittelwert deskriptiv
-# um etwa 0.23 Skalenpunkte stärker aus:
-#
-# 0.54 - 0.31 = 0.23
-#
-# Insgesamt deutet das Mittelwertmuster deskriptiv
-# auf einen möglichen kleinen Interaktionseffekt
-# zwischen Position und CVPA-Gruppe hin.
-#
-# Ob dieser Unterschied statistisch signifikant ist,
-# kann erst anhand der Factorial Mixed ANOVA
-# beurteilt werden.
 
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-# Das Mixed-ANOVA-Modell wird zunächst geschätzt,
-# damit anschließend die Residuen geprüft werden können.
-
-anova_position_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Position",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_position_cvpa
-)
-speichere_p_werte(anova_position_cvpa, "anova_position_cvpa")
-
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-# Residuen aus dem Modell extrahieren
-
-residuen_position_cvpa <- residuals(
-  anova_position_cvpa$lm
+# Modell zunächst schätzen und Voraussetzungen prüfen
+anova_position_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_position_cvpa,
+  "Position",
+  "anova_position_cvpa"
 )
 
+residuen_position_cvpa <- residuals(anova_position_cvpa$lm)
 
-#### Density Plot der Residuen ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_position_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_position_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -3318,50 +3124,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_10 <- shapiro.test(
-  as.numeric(
-    residuen_position_cvpa
-  )
+shapiro_auto_10 <- shapiro_residuen_cvpa(
+  residuen_position_cvpa,
+  "shapiro_auto_10"
 )
-speichere_p_werte(shapiro_auto_10, "shapiro_auto_10")
 shapiro_auto_10
 
-
-# Interpretation:
-
-# p < .05:
-#
-# H0 verwerfen.
-# -> statistisch signifikante Abweichung
-#    von der Normalverteilung
-#
-#
-# Der Shapiro-Wilk-Test wird zusätzlich
-# anhand des QQ-Plots beurteilt.
-
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_position_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_position_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -3375,417 +3148,78 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-
-# H0 nicht verwerfen, graphisch nicht zu schlecht
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# CVPA_Gruppe ist der Between-Subjects-Faktor.
-#
-# Daher wird für jede Positionsbedingung geprüft,
-# ob die Varianzen zwischen den beiden CVPA-Gruppen
-# homogen sind.
-
-
-#### Dezentrale Position ####
-
-levene_auto_12 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_position_cvpa %>%
-    filter(
-      Position == "dezentral"
-    )
+levene_auto_12 <- levene_cvpa(
+  inkonsistenz_position_cvpa, "Position", "dezentral", "levene_auto_12"
 )
-speichere_p_werte(levene_auto_12, "levene_auto_12")
 levene_auto_12
 
-
-#### Zentrale Position ####
-
-levene_auto_13 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_position_cvpa %>%
-    filter(
-      Position == "zentral"
-    )
+levene_auto_13 <- levene_cvpa(
+  inkonsistenz_position_cvpa, "Position", "zentral", "levene_auto_13"
 )
-speichere_p_werte(levene_auto_13, "levene_auto_13")
 levene_auto_13
 
-# Insgesamt ist die Varianzhomogenität
-# für beide Positionsbedingungen erfüllt.
-
-
-#############################################################################################################
-#### 2 x 2 Factorial Mixed ANOVA: Position x CVPA ###########################################################
-#############################################################################################################
-
-
-anova_position_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Position",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_position_cvpa
+# 2 × 2 Factorial Mixed ANOVA
+anova_position_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_position_cvpa,
+  "Position",
+  "anova_position_cvpa"
 )
-speichere_p_werte(anova_position_cvpa, "anova_position_cvpa")
-
-
-# ANOVA-Tabelle anzeigen
-
 anova_position_cvpa
-# Interpretation der 2 x 2 Factorial Mixed ANOVA:
-#
-# 1. Haupteffekt CVPA-Gruppe:
-#
-# F(1, 133) = 0.00
-# p = .992
-# ges < .001
-#
-# Da p > .05, liegt kein signifikanter
-# Haupteffekt der CVPA-Gruppe vor.
-#
-# Personen mit einem CVPA unterhalb und oberhalb
-# des Gesamtmittelwerts unterscheiden sich über
-# beide Positionsbedingungen hinweg insgesamt
-# nicht signifikant in ihrer wahrgenommenen
-# stilistischen Inkonsistenz.
-#
-#
-# 2. Haupteffekt Position:
-#
-# F(1, 133) = 19.88
-# p < .001
-# ges = .047
-#
-# Da p < .05, liegt ein signifikanter
-# Haupteffekt der Position vor.
-#
-# Die zentrale Position des stilistisch
-# abweichenden Produkts führt insgesamt zu
-# einer höheren wahrgenommenen Inkonsistenz
-# als die dezentrale Position.
-#
-#
-# 3. Interaktion CVPA-Gruppe x Position:
-#
-# F(1, 133) = 1.20
-# p = .194
-# ges = .004
-#
-# Da p > .05, liegt kein signifikanter
-# Interaktionseffekt zwischen CVPA-Gruppe
-# und Position vor.
-#
-# Der Einfluss der Position auf die wahrgenommene
-# Inkonsistenz unterscheidet sich somit nicht
-# signifikant zwischen Personen mit niedrigem
-# und hohem CVPA.
-#
-#
-# Deskriptiv:
-#
-
-
-
-
-
-#### Unterschiede nach CVPA: Größe ##########################################################################
-#############################################################################################################
-
-
-# Fragestellung:
-#
-# Unterscheidet sich der Einfluss der Größe des stilistisch
-# abweichenden Produkts auf die wahrgenommene Inkonsistenz
-# zwischen Personen mit niedrigem und hohem CVPA?
-#
-#
-# DV:
-# Wahrgenommene stilistische Inkonsistenz
-#
-#
-# Faktor 1: Größe
-#
-# klein:
-# Schuh-stark-dezentral
-#
-# groß:
-# Jacke-stark-dezentral
-#
-# -> Within-Subjects-Faktor,
-#    da jede Person beide Outfits bewertet hat.
-#
-#
-# Faktor 2: CVPA-Gruppe
-#
-# unter Mittelwert
-# über Mittelwert
-#
-# -> Between-Subjects-Faktor
-#
-#
-# Daher:
-# -> 2 x 2 Factorial Mixed ANOVA
-#
-#
-# Besonders relevant ist der Interaktionseffekt:
-#
-# Groesse x CVPA_Gruppe
-#
-# Dieser prüft, ob sich der Einfluss der Produktgröße
-# zwischen Personen mit niedrigem und hohem CVPA unterscheidet.
 
 
 #############################################################################################################
-#### Daten vorbereiten ######################################################################################
+#### 2. Größe × CVPA #########################################################################################
 #############################################################################################################
 
-
-inkonsistenz_groesse_cvpa <- salienz_reshaped %>%
-  filter(
-    Condition %in% c(
-      "Schuh-stark-dezentral",
-      "Jacke-stark-dezentral"
-    )
-  ) %>%
-  mutate(
-    
-    # Faktor Größe bilden
-    
-    Groesse = case_when(
-      Condition == "Schuh-stark-dezentral" ~ "klein",
-      Condition == "Jacke-stark-dezentral" ~ "gross"
-    ),
-    
-    
-    # CVPA-Gruppe als Faktor definieren
-    
-    CVPA_Gruppe = factor(
-      CVPA_Gruppe,
-      levels = c(
-        "unter Mittelwert",
-        "über Mittelwert"
-      )
-    ),
-    
-    
-    # Größe als Faktor definieren
-    
-    Groesse = factor(
-      Groesse,
-      levels = c(
-        "klein",
-        "gross"
-      )
-    )
-  ) %>%
-  
-  # Nur vollständige Werte berücksichtigen
-  
-  filter(
-    !is.na(CVPA_Gruppe),
-    !is.na(Groesse),
-    !is.na(Mittelwert_Inkonsistenz)
-  )
-
-
-#############################################################################################################
-#### Nur Personen mit beiden Größenbedingungen behalten ####################################################
-#############################################################################################################
-
-
-# Eine Person wird nur berücksichtigt,
-# wenn sowohl die kleine als auch die große
-# Produktbedingung vorhanden ist.
-
-inkonsistenz_groesse_cvpa <-
-  inkonsistenz_groesse_cvpa %>%
-  group_by(number) %>%
-  filter(
-    n_distinct(Groesse) == 2
-  ) %>%
-  ungroup()
-
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
-# Jede Person sollte genau zwei Zeilen besitzen.
-
-table(
-  inkonsistenz_groesse_cvpa$number
+inkonsistenz_groesse_cvpa <- bereite_cvpa_daten_vor(
+  conditions = c("Schuh-stark-dezentral", "Jacke-stark-dezentral"),
+  faktor = "Groesse",
+  zuordnung = c(
+    "Schuh-stark-dezentral" = "klein",
+    "Jacke-stark-dezentral" = "gross"
+  ),
+  stufen = c("klein", "gross")
 )
 
+table(inkonsistenz_groesse_cvpa$number)
 
-#############################################################################################################
-#### Deskriptive Exploration: Boxplots ######################################################################
-#############################################################################################################
-
-
-#### Boxplot 1: kleines stilistisch abweichendes Produkt ####
-
-boxplot_groesse_klein_cvpa <-
-  inkonsistenz_groesse_cvpa %>%
-  filter(
-    Groesse == "klein"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
+boxplot_groesse_klein_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_groesse_cvpa,
+  "Groesse",
+  "klein",
+  "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral"
+)
 speichere_grafik(boxplot_groesse_klein_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_groesse_klein_cvpa)
 
-print(
-  boxplot_groesse_klein_cvpa
+boxplot_groesse_gross_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_groesse_cvpa,
+  "Groesse",
+  "gross",
+  "Großes stilistisch abweichendes Produkt: Jacke stark dezentral"
 )
-
-
-#### Boxplot 2: großes stilistisch abweichendes Produkt ####
-
-boxplot_groesse_gross_cvpa <-
-  inkonsistenz_groesse_cvpa %>%
-  filter(
-    Groesse == "gross"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Großes stilistisch abweichendes Produkt: Jacke stark dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
 speichere_grafik(boxplot_groesse_gross_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_groesse_gross_cvpa)
 
-print(
-  boxplot_groesse_gross_cvpa
+deskriptiv_groesse_cvpa <- deskriptiv_cvpa(
+  inkonsistenz_groesse_cvpa,
+  "Groesse"
 )
-
-
-#############################################################################################################
-#### Deskriptive Kennwerte ##################################################################################
-#############################################################################################################
-
-
-deskriptiv_groesse_cvpa <-
-  inkonsistenz_groesse_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Groesse
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
 deskriptiv_groesse_cvpa
 
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-anova_groesse_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Groesse",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_groesse_cvpa
+# Erste Voraussetzungenprüfung wie im Original
+anova_groesse_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_groesse_cvpa,
+  "Groesse",
+  "anova_groesse_cvpa"
 )
-speichere_p_werte(anova_groesse_cvpa, "anova_groesse_cvpa")
+residuen_groesse_cvpa <- residuals(anova_groesse_cvpa$lm)
 
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-# Residuen aus dem Modell extrahieren
-
-residuen_groesse_cvpa <- residuals(
-  anova_groesse_cvpa$lm
-)
-
-
-#### Density Plot ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_groesse_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -3798,48 +3232,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_11 <- shapiro.test(
-  as.numeric(
-    residuen_groesse_cvpa
-  )
+shapiro_auto_11 <- shapiro_residuen_cvpa(
+  residuen_groesse_cvpa,
+  "shapiro_auto_11"
 )
-speichere_p_werte(shapiro_auto_11, "shapiro_auto_11")
 shapiro_auto_11
 
-
-# Interpretation:
-
-# p < .05:
-#
-# H0 verwerfen.
-# -> statistisch signifikante Abweichung
-#    von der Normalverteilung
-#
-#
-# Zusätzlich wird der QQ-Plot betrachtet.
-
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_groesse_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -3853,120 +3256,29 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# CVPA_Gruppe ist der Between-Subjects-Faktor.
-#
-# Daher wird für beide Größenbedingungen geprüft,
-# ob die Varianzen zwischen den beiden CVPA-Gruppen
-# homogen sind.
-
-
-#### Kleines Produkt ####
-
-levene_auto_14 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_groesse_cvpa %>%
-    filter(
-      Groesse == "klein"
-    )
+levene_auto_14 <- levene_cvpa(
+  inkonsistenz_groesse_cvpa, "Groesse", "klein", "levene_auto_14"
 )
-speichere_p_werte(levene_auto_14, "levene_auto_14")
 levene_auto_14
 
-
-#### Großes Produkt ####
-
-levene_auto_15 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_groesse_cvpa %>%
-    filter(
-      Groesse == "gross"
-    )
+levene_auto_15 <- levene_cvpa(
+  inkonsistenz_groesse_cvpa, "Groesse", "gross", "levene_auto_15"
 )
-speichere_p_werte(levene_auto_15, "levene_auto_15")
 levene_auto_15
 
-# Interpretation:
-#
-# Sowohl bei Personen mit einem CVPA unterhalb als auch
-# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
-# stilistische Inkonsistenz deutlich vom kleinen zum
-# großen stilistisch abweichenden Produkt.
-#
-
-#
-#
-# Der Größeneffekt ist damit in beiden
-# CVPA-Gruppen nahezu gleich stark.
-#
-# Der Unterschied zwischen den beiden
-# Größeneffekten beträgt lediglich:
-#
-#
-# Bei beiden Größenbedingungen weist die Gruppe
-# unterhalb des CVPA-Mittelwerts deskriptiv
-# etwas höhere Inkonsistenzbewertungen auf:
-#
-
-#
-#
-# Insgesamt deutet das Mittelwertmuster
-# deskriptiv kaum auf einen Interaktionseffekt
-# zwischen Größe und CVPA-Gruppe hin. 
-# Ob ein statistisch signifikanter Unterschied
-# besteht, wird anschließend mit der
-# Factorial Mixed ANOVA geprüft.
-
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-anova_groesse_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Groesse",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_groesse_cvpa
+# Erneute identische Voraussetzungenprüfung wie im Original
+anova_groesse_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_groesse_cvpa,
+  "Groesse",
+  "anova_groesse_cvpa"
 )
-speichere_p_werte(anova_groesse_cvpa, "anova_groesse_cvpa")
+residuen_groesse_cvpa <- residuals(anova_groesse_cvpa$lm)
 
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-# Residuen aus dem Modell extrahieren
-
-residuen_groesse_cvpa <- residuals(
-  anova_groesse_cvpa$lm
-)
-
-
-#### Density Plot ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_groesse_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -3979,48 +3291,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_12 <- shapiro.test(
-  as.numeric(
-    residuen_groesse_cvpa
-  )
+shapiro_auto_12 <- shapiro_residuen_cvpa(
+  residuen_groesse_cvpa,
+  "shapiro_auto_12"
 )
-speichere_p_werte(shapiro_auto_12, "shapiro_auto_12")
 shapiro_auto_12
 
-
-# Interpretation:
-
-# p < .05:
-#
-# H0 verwerfen.
-# -> statistisch signifikante Abweichung
-#    von der Normalverteilung
-#
-#
-# Zusätzlich wird der QQ-Plot betrachtet. Der sieht nicht gut aus. H0 verwerfen
-
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_groesse_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -4034,127 +3315,22 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# CVPA_Gruppe ist der Between-Subjects-Faktor.
-#
-# Daher wird für beide Größenbedingungen geprüft,
-# ob die Varianzen zwischen den beiden CVPA-Gruppen
-# homogen sind.
-
-
-#### Kleines Produkt ####
-
-levene_auto_16 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_groesse_cvpa %>%
-    filter(
-      Groesse == "klein"
-    )
+levene_auto_16 <- levene_cvpa(
+  inkonsistenz_groesse_cvpa, "Groesse", "klein", "levene_auto_16"
 )
-speichere_p_werte(levene_auto_16, "levene_auto_16")
 levene_auto_16
 
-
-#### Großes Produkt ####
-
-levene_auto_17 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_groesse_cvpa %>%
-    filter(
-      Groesse == "gross"
-    )
+levene_auto_17 <- levene_cvpa(
+  inkonsistenz_groesse_cvpa, "Groesse", "gross", "levene_auto_17"
 )
-speichere_p_werte(levene_auto_17, "levene_auto_17")
 levene_auto_17
 
-## VArianzen ok
-#############################################################################################################
-#### Robuste Factorial Mixed ANOVA: Größe x CVPA ############################################################
-#############################################################################################################
-
-
-# Die Normalverteilungsannahme ist deutlich verletzt:
-#
-# Shapiro-Wilk:
-# W = 0.98263
-# p < .05
-#
-# Zusätzlich zeigt der QQ-Plot deutliche Abweichungen
-# von der Normalverteilung.
-#
-# Daher wird anstelle der klassischen Factorial Mixed ANOVA
-# eine robuste Factorial Mixed ANOVA durchgeführt.
-#
-#
-# Between-Subjects-Faktor:
-# CVPA_Gruppe
-#
-# Within-Subjects-Faktor:
-# Groesse
-#
-# AV:
-# Mittelwert_Inkonsistenz
-#
-#
-# Für die robuste Mixed ANOVA wird bwtrim()
-# aus dem Paket WRS2 verwendet.
-#
-# bwtrim() arbeitet standardmäßig mit
-# 20 % getrimmten Mittelwerten.
-
-
-
-
-#############################################################################################################
-#### Robuste deskriptive Kennwerte ##########################################################################
-#############################################################################################################
-
-
-# Passend zur robusten ANOVA werden zusätzlich
-# die 20 % getrimmten Mittelwerte ausgegeben.
-
-deskriptiv_groesse_cvpa_robust <-
-  inkonsistenz_groesse_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Groesse
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Getrimmter_Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      trim = 0.20,
-      na.rm = TRUE
-    ),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
+# Robuste deskriptive Kennwerte und robuste 2 × 2 Mixed ANOVA
+deskriptiv_groesse_cvpa_robust <- deskriptiv_cvpa_robust(
+  inkonsistenz_groesse_cvpa,
+  "Groesse"
+)
 deskriptiv_groesse_cvpa_robust
-
-
-#############################################################################################################
-#### Robuste 2 x 2 Factorial Mixed ANOVA ####################################################################
-#############################################################################################################
-
 
 robust_anova_groesse_cvpa <- bwtrim(
   Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Groesse,
@@ -4162,423 +3338,65 @@ robust_anova_groesse_cvpa <- bwtrim(
   data = inkonsistenz_groesse_cvpa,
   tr = 0.20
 )
-
-
-# Ergebnisse anzeigen
 robust_anova_groesse_cvpa
 
-# Interpretation der robusten Factorial Mixed ANOVA:
-#
-# 1. Haupteffekt CVPA-Gruppe:
-#
-
-# Da p > .05, liegt kein signifikanter
-# Haupteffekt der CVPA-Gruppe vor.
-#
-# Personen mit einem CVPA unterhalb und oberhalb
-# des Gesamtmittelwerts unterscheiden sich insgesamt
-# nicht signifikant in ihrer wahrgenommenen
-# stilistischen Inkonsistenz.
-#
-#
-# 2. Haupteffekt Größe:
-#
-
-# Da p < .05, liegt ein signifikanter
-# Haupteffekt der Größe vor.
-#
-# Die wahrgenommene Inkonsistenz unterscheidet sich
-# somit signifikant zwischen dem kleinen und dem
-# großen stilistisch abweichenden Produkt.
-#
-# Aus den deskriptiven Mittelwerten ergibt sich:
-
-#
-# Das große stilistisch abweichende Produkt wird
-# somit in beiden CVPA-Gruppen deutlich inkonsistenter
-# wahrgenommen als das kleine Produkt.
-#
-#
-# 3. Interaktion CVPA-Gruppe x Größe:
-#
-#
-# Da p > .05, liegt kein signifikanter
-# Interaktionseffekt zwischen CVPA-Gruppe und Größe vor.
-#
-# Der Einfluss der Produktgröße auf die wahrgenommene
-# Inkonsistenz unterscheidet sich somit nicht signifikant
-# zwischen Personen mit einem CVPA unterhalb und
-# oberhalb des Gesamtmittelwerts.
-#
-# Der deskriptiv sehr kleine Unterschied zwischen
-# den Größeneffekten von 1.01 und 1.07
-# wird damit auch inferenzstatistisch nicht bestätigt.
-
-
-
 
 #############################################################################################################
-#### Unterschiede nach CVPA: Stärke #########################################################################
+#### 3. Stärke × CVPA ########################################################################################
 #############################################################################################################
 
-
-# Fragestellung:
-#
-# Unterscheidet sich der Einfluss der Stärke der
-# stilistischen Abweichung auf die wahrgenommene
-# Inkonsistenz zwischen Personen mit niedrigem
-# und hohem CVPA?
-#
-#
-# DV:
-# Wahrgenommene stilistische Inkonsistenz
-#
-#
-# Faktor 1: Stärke
-#
-# leicht:
-# Jacke-leicht-dezentral
-#
-# stark:
-# Jacke-stark-dezentral
-#
-# -> Within-Subjects-Faktor,
-#    da jede Person beide Outfits bewertet hat.
-#
-#
-# Faktor 2: CVPA-Gruppe
-#
-# unter Mittelwert
-# über Mittelwert
-#
-# -> Between-Subjects-Faktor
-#
-#
-# Daher:
-# -> 2 x 2 Factorial Mixed ANOVA
-#
-#
-# Besonders relevant ist der Interaktionseffekt:
-#
-# Staerke x CVPA_Gruppe
-#
-# Dieser prüft, ob sich der Einfluss der Stärke
-# der stilistischen Abweichung zwischen Personen
-# mit niedrigem und hohem CVPA unterscheidet.
-
-
-#############################################################################################################
-#### Daten vorbereiten ######################################################################################
-#############################################################################################################
-
-
-inkonsistenz_staerke_cvpa <- salienz_reshaped %>%
-  filter(
-    Condition %in% c(
-      "Jacke-leicht-dezentral",
-      "Jacke-stark-dezentral"
-    )
-  ) %>%
-  mutate(
-    
-    # Faktor Stärke bilden
-    
-    Staerke = case_when(
-      Condition == "Jacke-leicht-dezentral" ~ "leicht",
-      Condition == "Jacke-stark-dezentral" ~ "stark"
-    ),
-    
-    
-    # CVPA-Gruppe als Faktor definieren
-    
-    CVPA_Gruppe = factor(
-      CVPA_Gruppe,
-      levels = c(
-        "unter Mittelwert",
-        "über Mittelwert"
-      )
-    ),
-    
-    
-    # Stärke als Faktor definieren
-    
-    Staerke = factor(
-      Staerke,
-      levels = c(
-        "leicht",
-        "stark"
-      )
-    )
-  ) %>%
-  
-  # Nur vollständige Werte berücksichtigen
-  
-  filter(
-    !is.na(CVPA_Gruppe),
-    !is.na(Staerke),
-    !is.na(Mittelwert_Inkonsistenz)
-  )
-
-
-#############################################################################################################
-#### Nur Personen mit beiden Stärkebedingungen behalten #####################################################
-#############################################################################################################
-
-
-# Eine Person wird nur berücksichtigt,
-# wenn sowohl die leichte als auch die starke
-# Abweichungsbedingung vorhanden ist.
-
-inkonsistenz_staerke_cvpa <-
-  inkonsistenz_staerke_cvpa %>%
-  group_by(number) %>%
-  filter(
-    n_distinct(Staerke) == 2
-  ) %>%
-  ungroup()
-
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
-# Jede Person sollte genau zwei Zeilen besitzen.
-
-table(
-  inkonsistenz_staerke_cvpa$number
+inkonsistenz_staerke_cvpa <- bereite_cvpa_daten_vor(
+  conditions = c("Jacke-leicht-dezentral", "Jacke-stark-dezentral"),
+  faktor = "Staerke",
+  zuordnung = c(
+    "Jacke-leicht-dezentral" = "leicht",
+    "Jacke-stark-dezentral" = "stark"
+  ),
+  stufen = c("leicht", "stark")
 )
 
-
-# Anzahl der Personen je CVPA-Gruppe
+table(inkonsistenz_staerke_cvpa$number)
 
 inkonsistenz_staerke_cvpa %>%
-  distinct(
-    number,
-    CVPA_Gruppe
-  ) %>%
-  count(
-    CVPA_Gruppe
-  )
+  distinct(number, CVPA_Gruppe) %>%
+  count(CVPA_Gruppe)
 
-
-#############################################################################################################
-#### Deskriptive Exploration: Boxplots ######################################################################
-#############################################################################################################
-
-
-#### Boxplot 1: leichte stilistische Abweichung ####
-
-boxplot_staerke_leicht_cvpa <-
-  inkonsistenz_staerke_cvpa %>%
-  filter(
-    Staerke == "leicht"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Leichte stilistische Abweichung: Jacke dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
+boxplot_staerke_leicht_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_staerke_cvpa,
+  "Staerke",
+  "leicht",
+  "Leichte stilistische Abweichung: Jacke dezentral"
+)
 speichere_grafik(boxplot_staerke_leicht_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_staerke_leicht_cvpa)
 
-print(
-  boxplot_staerke_leicht_cvpa
+boxplot_staerke_stark_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_staerke_cvpa,
+  "Staerke",
+  "stark",
+  "Starke stilistische Abweichung: Jacke dezentral"
 )
-
-
-#### Boxplot 2: starke stilistische Abweichung ####
-
-boxplot_staerke_stark_cvpa <-
-  inkonsistenz_staerke_cvpa %>%
-  filter(
-    Staerke == "stark"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Starke stilistische Abweichung: Jacke dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
 speichere_grafik(boxplot_staerke_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
+print(boxplot_staerke_stark_cvpa)
 
-print(
-  boxplot_staerke_stark_cvpa
+deskriptiv_staerke_cvpa <- deskriptiv_cvpa(
+  inkonsistenz_staerke_cvpa,
+  "Staerke"
 )
-
-
-#############################################################################################################
-#### Deskriptive Kennwerte ##################################################################################
-#############################################################################################################
-
-
-deskriptiv_staerke_cvpa <-
-  inkonsistenz_staerke_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Staerke
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
 deskriptiv_staerke_cvpa
-# Interpretation:
-#
-# Sowohl bei Personen mit einem CVPA unterhalb als auch
-# oberhalb des Gesamtmittelwerts steigt die wahrgenommene
-# stilistische Inkonsistenz von der leichten zur
-# starken stilistischen Abweichung.
-#
-#
-# CVPA unter Mittelwert:
-#
-# Leichte Abweichung:
-# M = 2.59, SD = 0.86
-#
-# Starke Abweichung:
-# M = 3.16, SD = 0.89
-#
-# Differenz:
-# 3.16 - 2.59 = 0.57
-#
-#
-# CVPA über Mittelwert:
-#
-# Leichte Abweichung:
-# M = 2.44, SD = 1.00
-#
-# Starke Abweichung:
-# M = 3.05, SD = 0.94
-#
-# Differenz:
-# 3.05 - 2.44 = 0.61
-#
-#
-# Der Stärkeeffekt ist damit in beiden
-# CVPA-Gruppen nahezu identisch.
-#
-# Der Unterschied zwischen den beiden
-# Stärkeeffekten beträgt lediglich:
-#
-# 0.61 - 0.57 = 0.04
-#
-#
-# Auch die absoluten Mittelwerte liegen in beiden
-# Bedingungen sehr nah beieinander:
-#
-#
-#
-# Insgesamt deutet das Mittelwertmuster
-# deskriptiv kaum auf einen Interaktionseffekt
-# zwischen Stärke und CVPA-Gruppe hin.
-#
-# Ob ein statistisch signifikanter Unterschied
-# vorliegt, wird anschließend mit der
-# Factorial Mixed ANOVA bzw. bei verletzten
-# Annahmen mit einer robusten Mixed ANOVA geprüft.
 
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-anova_staerke_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Staerke",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_staerke_cvpa
+anova_staerke_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_staerke_cvpa,
+  "Staerke",
+  "anova_staerke_cvpa"
 )
-speichere_p_werte(anova_staerke_cvpa, "anova_staerke_cvpa")
+residuen_staerke_cvpa <- residuals(anova_staerke_cvpa$lm)
 
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-# Residuen aus dem Modell extrahieren
-
-residuen_staerke_cvpa <- residuals(
-  anova_staerke_cvpa$lm
-)
-
-
-#### Density Plot der Residuen ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -4591,56 +3409,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_13 <- shapiro.test(
-  as.numeric(
-    residuen_staerke_cvpa
-  )
+shapiro_auto_13 <- shapiro_residuen_cvpa(
+  residuen_staerke_cvpa,
+  "shapiro_auto_13"
 )
-speichere_p_werte(shapiro_auto_13, "shapiro_auto_13")
 shapiro_auto_13
 
-
-# Interpretation:
-#
-# p > .05:
-#
-# H0 nicht verwerfen.
-# -> keine statistisch signifikante Abweichung
-#    von der Normalverteilung
-#
-#
-# p < .05:
-#
-# H0 verwerfen.
-# -> statistisch signifikante Abweichung
-#    von der Normalverteilung
-#
-#
-# Zusätzlich wird der QQ-Plot betrachtet.
-
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -4654,289 +3433,50 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-# p < 0.05 aber Graph ist okay
-# Der Shapiro-Wilk-Wert liegt jedoch sehr nahe bei 1.
-#
-# Zusätzlich zeigt der QQ-Plot keine gravierenden
-# systematischen Abweichungen von der Normalverteilung.
-#
-# Die Abweichung wird daher als gering und für
-# die Durchführung der Mixed ANOVA als vertretbar beurteilt.
-#
-
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# CVPA_Gruppe ist der Between-Subjects-Faktor.
-#
-# Daher wird für beide Stärkebedingungen geprüft,
-# ob die Varianzen zwischen den beiden CVPA-Gruppen
-# homogen sind.
-
-
-#### Leichte stilistische Abweichung ####
-
-levene_auto_18 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke_cvpa %>%
-    filter(
-      Staerke == "leicht"
-    )
+levene_auto_18 <- levene_cvpa(
+  inkonsistenz_staerke_cvpa, "Staerke", "leicht", "levene_auto_18"
 )
-speichere_p_werte(levene_auto_18, "levene_auto_18")
 levene_auto_18
 
-
-#### Starke stilistische Abweichung ####
-
-levene_auto_19 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke_cvpa %>%
-    filter(
-      Staerke == "stark"
-    )
+levene_auto_19 <- levene_cvpa(
+  inkonsistenz_staerke_cvpa, "Staerke", "stark", "levene_auto_19"
 )
-speichere_p_werte(levene_auto_19, "levene_auto_19")
 levene_auto_19
-# Die Varianzhomogenität ist für beide
-# Stärkebedingungen gegeben
 
-
-
-#############################################################################################################
-#### 2 x 2 Factorial Mixed ANOVA: Stärke x CVPA #############################################################
-#############################################################################################################
-
-anova_staerke_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Staerke",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_staerke_cvpa
+anova_staerke_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_staerke_cvpa,
+  "Staerke",
+  "anova_staerke_cvpa"
 )
-speichere_p_werte(anova_staerke_cvpa, "anova_staerke_cvpa")
-
-
-# ANOVA-Tabelle anzeigen
-
 anova_staerke_cvpa
 
-# Interpretation der 2 x 2 Factorial Mixed ANOVA:
-#
-# 1. Haupteffekt CVPA-Gruppe:
-#
-# F(1, 133) = 1.1
-# p = .297
-# ges = .005
-#
-# Da p > .05, liegt kein signifikanter
-# Haupteffekt der CVPA-Gruppe vor.
-#
-# Personen mit einem CVPA unterhalb und oberhalb
-# des Gesamtmittelwerts unterscheiden sich insgesamt
-# nicht signifikant in ihrer wahrgenommenen
-# stilistischen Inkonsistenz.
-#
-#
-# 2. Haupteffekt Stärke:
-#
-# F(1, 133) = 38.39
-# p < .001
-# ges = .094
-#
-# Da p < .05, liegt ein signifikanter
-# Haupteffekt der Stärke der stilistischen
-# Abweichung vor.
-#
-# Eine starke stilistische Abweichung wird
-# insgesamt als inkonsistenter wahrgenommen
-# als eine leichte stilistische Abweichung.
-#
-#
-# Deskriptiv:
-#
-
-#
-# 3. Interaktion CVPA-Gruppe x Stärke:
-#
-# F(1, 133) = 0.03
-# p = .873
-# ges < .001
-#
-# Da p > .05, liegt kein signifikanter
-# Interaktionseffekt zwischen CVPA-Gruppe
-# und Stärke vor.
-#
-# Der Einfluss der Stärke der stilistischen
-# Abweichung auf die wahrgenommene Inkonsistenz
-# unterscheidet sich somit nicht signifikant
-# zwischen Personen mit einem CVPA unterhalb
-# und oberhalb des Gesamtmittelwerts.
-#
-#
-# Dies wird durch den sehr hohen p-Wert
-# der Interaktion von p = .873 bestätigt.
-
-# Damit hast du bei CVPA bisher ein sehr konsistentes Muster: keine Moderation bei Position, keine Moderation bei Größe und keine Moderation bei Stärke. Die jeweiligen Salienzmanipulationen wirken, aber ihre Wirkung scheint nicht davon abzuhängen, ob eine Person unter oder über dem durchschnittlichen CVPA liegt.
-
-
-
-
 
 #############################################################################################################
-#### Unterschiede nach CVPA: Stärke mit Baseline ############################################################
+#### 4. Stärke mit Baseline × CVPA ###########################################################################
 #############################################################################################################
 
-
-# Fragestellung:
-#
-# Unterscheidet sich der Einfluss der Stärke der
-# stilistischen Abweichung auf die wahrgenommene
-# Inkonsistenz zwischen Personen mit einem CVPA
-# unterhalb und oberhalb des Gesamtmittelwerts?
-#
-#
-# DV:
-# Wahrgenommene stilistische Inkonsistenz
-#
-#
-# Faktor 1: Stärke
-#
-# baseline:
-# Min-Baseline
-#
-# leicht:
-# Jacke-leicht-dezentral
-#
-# stark:
-# Jacke-stark-dezentral
-#
-# -> Within-Subjects-Faktor,
-#    da jede Person alle drei Outfits bewertet hat.
-#
-#
-# Faktor 2: CVPA-Gruppe
-#
-# unter Mittelwert
-# über Mittelwert
-#
-# -> Between-Subjects-Faktor
-#
-#
-# Daher:
-# -> 3 x 2 Factorial Mixed ANOVA
-#
-#
-# Besonders relevant ist der Interaktionseffekt:
-#
-# Staerke x CVPA_Gruppe
-#
-# Dieser prüft, ob sich die Veränderung der
-# Inkonsistenzbewertung über Baseline, leichte
-# und starke Abweichung zwischen den beiden
-# CVPA-Gruppen unterscheidet.
-
-
-#############################################################################################################
-#### Daten vorbereiten ######################################################################################
-#############################################################################################################
-
-
-inkonsistenz_staerke3_cvpa <- salienz_reshaped %>%
-  filter(
-    Condition %in% c(
-      "Min-Baseline",
-      "Jacke-leicht-dezentral",
-      "Jacke-stark-dezentral"
-    )
-  ) %>%
-  mutate(
-    
-    # Faktor Stärke bilden
-    
-    Staerke = case_when(
-      Condition == "Min-Baseline" ~ "baseline",
-      Condition == "Jacke-leicht-dezentral" ~ "leicht",
-      Condition == "Jacke-stark-dezentral" ~ "stark"
-    ),
-    
-    
-    # CVPA-Gruppe als Faktor definieren
-    
-    CVPA_Gruppe = factor(
-      CVPA_Gruppe,
-      levels = c(
-        "unter Mittelwert",
-        "über Mittelwert"
-      )
-    ),
-    
-    
-    # Stärke als Faktor definieren
-    
-    Staerke = factor(
-      Staerke,
-      levels = c(
-        "baseline",
-        "leicht",
-        "stark"
-      )
-    )
-  ) %>%
-  
-  filter(
-    !is.na(CVPA_Gruppe),
-    !is.na(Staerke),
-    !is.na(Mittelwert_Inkonsistenz)
-  )
-
-
-#############################################################################################################
-#### Nur Personen mit allen drei Stärkebedingungen behalten #################################################
-#############################################################################################################
-
-
-inkonsistenz_staerke3_cvpa <-
-  inkonsistenz_staerke3_cvpa %>%
-  group_by(number) %>%
-  filter(
-    n_distinct(Staerke) == 3
-  ) %>%
-  ungroup()
-
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
-# Jede Person sollte genau drei Zeilen besitzen.
-
-table(
-  inkonsistenz_staerke3_cvpa$number
+inkonsistenz_staerke3_cvpa <- bereite_cvpa_daten_vor(
+  conditions = c(
+    "Min-Baseline",
+    "Jacke-leicht-dezentral",
+    "Jacke-stark-dezentral"
+  ),
+  faktor = "Staerke",
+  zuordnung = c(
+    "Min-Baseline" = "baseline",
+    "Jacke-leicht-dezentral" = "leicht",
+    "Jacke-stark-dezentral" = "stark"
+  ),
+  stufen = c("baseline", "leicht", "stark")
 )
 
-
-# Anzahl Personen je CVPA-Gruppe
+table(inkonsistenz_staerke3_cvpa$number)
 
 inkonsistenz_staerke3_cvpa %>%
-  distinct(
-    number,
-    CVPA_Gruppe
-  ) %>%
-  count(
-    CVPA_Gruppe
-  )
+  distinct(number, CVPA_Gruppe) %>%
+  count(CVPA_Gruppe)
 
-
-#############################################################################################################
-#### Deskriptive Exploration: Boxplots ######################################################################
-#############################################################################################################
-
-
+# Gemeinsamer Boxplot für alle drei Stärkestufen
 zeige_und_speichere_grafik(
   ggplot(
     inkonsistenz_staerke3_cvpa,
@@ -4946,15 +3486,8 @@ zeige_und_speichere_grafik(
       fill = CVPA_Gruppe
     )
   ) +
-    geom_boxplot(
-      position = position_dodge(
-        width = 0.8
-      )
-    ) +
-    scale_y_continuous(
-      breaks = 1:5,
-      limits = c(1, 5)
-    ) +
+    geom_boxplot(position = position_dodge(width = 0.8)) +
+    scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
       title = "Inkonsistenzbewertung nach Stärke und CVPA",
       subtitle = "Baseline, leichte und starke stilistische Abweichung",
@@ -4966,117 +3499,24 @@ zeige_und_speichere_grafik(
   "Inkonsistenzbewertung nach Stärke und CVPA"
 )
 
-
-#############################################################################################################
-#### Deskriptive Kennwerte ##################################################################################
-#############################################################################################################
-
-
-deskriptiv_staerke3_cvpa <-
-  inkonsistenz_staerke3_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Staerke
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
+deskriptiv_staerke3_cvpa <- deskriptiv_cvpa(
+  inkonsistenz_staerke3_cvpa,
+  "Staerke"
+)
 deskriptiv_staerke3_cvpa
 
-
-# Interpretation:
-#
-# Relevant ist nun, wie stark die Inkonsistenz
-# innerhalb jeder CVPA-Gruppe zunimmt:
-#
-#
-# CVPA unter Mittelwert:
-#
-# leicht - baseline
-# stark - leicht
-# stark - baseline
-#
-#
-# CVPA über Mittelwert:
-#
-# leicht - baseline
-# stark - leicht
-# stark - baseline
-#
-#
-# Wenn sich diese Veränderungen zwischen den
-# beiden CVPA-Gruppen deutlich unterscheiden,
-# deutet dies deskriptiv auf einen möglichen
-# Interaktionseffekt zwischen Stärke und CVPA hin.
-
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-anova_staerke3_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Staerke",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_staerke3_cvpa
+anova_staerke3_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_staerke3_cvpa,
+  "Staerke",
+  "anova_staerke3_cvpa"
 )
-speichere_p_werte(anova_staerke3_cvpa, "anova_staerke3_cvpa")
+residuen_staerke3_cvpa <- residuals(anova_staerke3_cvpa$lm)
 
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-residuen_staerke3_cvpa <- residuals(
-  anova_staerke3_cvpa$lm
-)
-
-
-#### Density Plot ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke3_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke3_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -5089,37 +3529,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_14 <- shapiro.test(
-  as.numeric(
-    residuen_staerke3_cvpa
-  )
+shapiro_auto_14 <- shapiro_residuen_cvpa(
+  residuen_staerke3_cvpa,
+  "shapiro_auto_14"
 )
-speichere_p_werte(shapiro_auto_14, "shapiro_auto_14")
 shapiro_auto_14
 
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke3_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke3_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -5133,548 +3553,92 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-
-# Interpretation:
-
-# p < .05:
-# -> Normalverteilungsannahme formal verletzt
-#
-#
-# Zusätzlich wird der QQ-Plot beurteilt.
-# Der Shapiro-Wilk-Wert liegt mit W = 0.98274
-# jedoch relativ nahe bei 1.
-#
-# Zusätzlich zeigt der QQ-Plot keine gravierenden
-# oder systematischen Abweichungen von der
-# Normalverteilung.
-#
-# Die Abweichung wird daher als gering und für
-# die Durchführung der Factorial Mixed ANOVA
-# als vertretbar beurteilt.
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# Die Varianzhomogenität zwischen den beiden
-# CVPA-Gruppen wird für jede Stufe des
-# Within-Subjects-Faktors separat geprüft.
-
-
-#### Baseline ####
-
-levene_auto_20 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke3_cvpa %>%
-    filter(
-      Staerke == "baseline"
-    )
+levene_auto_20 <- levene_cvpa(
+  inkonsistenz_staerke3_cvpa, "Staerke", "baseline", "levene_auto_20"
 )
-speichere_p_werte(levene_auto_20, "levene_auto_20")
 levene_auto_20
 
-
-#### Leichte Abweichung ####
-
-levene_auto_21 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke3_cvpa %>%
-    filter(
-      Staerke == "leicht"
-    )
+levene_auto_21 <- levene_cvpa(
+  inkonsistenz_staerke3_cvpa, "Staerke", "leicht", "levene_auto_21"
 )
-speichere_p_werte(levene_auto_21, "levene_auto_21")
 levene_auto_21
 
-
-#### Starke Abweichung ####
-
-levene_auto_22 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke3_cvpa %>%
-    filter(
-      Staerke == "stark"
-    )
+levene_auto_22 <- levene_cvpa(
+  inkonsistenz_staerke3_cvpa, "Staerke", "stark", "levene_auto_22"
 )
-speichere_p_werte(levene_auto_22, "levene_auto_22")
 levene_auto_22
 
-
-# Interpretation:
-#
-# p > .05:
-# -> Varianzhomogenität gegeben
-#
-# Insgesamt ist die Varianzhomogenität
-# für alle drei Stärkebedingungen erfüllt.
-
-
-#############################################################################################################
-#### 3. Sphärizität #########################################################################################
-#############################################################################################################
-
-
-# Anders als bei einem Within-Faktor mit nur zwei
-# Stufen besitzt Stärke hier drei Stufen:
-#
-# baseline
-# leicht
-# stark
-#
-# Daher muss die Sphärizitätsannahme geprüft werden.
-
-
-summary_anova_staerke3_cvpa <- summary(
-  anova_staerke3_cvpa
+# Sphärizität prüfen
+summary_anova_staerke3_cvpa <- summary(anova_staerke3_cvpa)
+speichere_p_werte(
+  summary_anova_staerke3_cvpa,
+  "summary_anova_staerke3_cvpa"
 )
-speichere_p_werte(summary_anova_staerke3_cvpa, "summary_anova_staerke3_cvpa")
 summary_anova_staerke3_cvpa
 
-# INterpretation
-# Mauchly-Test für Stärke:
-#
-# W = 0.96639
-# p = .10476
-#
-# Da p > .05, wird H0 nicht verworfen.
-#
-# Es gibt keinen statistisch signifikanten Hinweis
-# auf eine Verletzung der Sphärizitätsannahme.
-#
-# -> Sphärizität ist gegeben.
-#
-#
-# Auch für die Interaktion
-# CVPA-Gruppe x Stärke gilt:
-#
-# W = 0.96639
-# p = .10476
-#
-# -> ebenfalls keine Verletzung der Sphärizität.
-#
-#
-# Daher ist keine Greenhouse-Geisser-
-# oder Huynh-Feldt-Korrektur erforderlich.
-
-
-# Interpretation der 3 x 2 Factorial Mixed ANOVA:
-#
-# 1. Haupteffekt CVPA-Gruppe:
-#
-
-#
-# Da p > .05, liegt kein signifikanter
-# Haupteffekt der CVPA-Gruppe vor.
-#
-# Personen mit einem CVPA unterhalb und oberhalb
-# des Gesamtmittelwerts unterscheiden sich über
-# die drei Stärkebedingungen hinweg insgesamt
-# nicht signifikant in ihrer wahrgenommenen
-# stilistischen Inkonsistenz.
-#
-#
-# 2. Haupteffekt Stärke:
-
-#
-# Da p < .05, liegt ein signifikanter
-# Haupteffekt der Stärke vor.
-#
-# Die wahrgenommene stilistische Inkonsistenz
-# unterscheidet sich somit signifikant zwischen
-# mindestens zwei der drei Bedingungen:
-#
-# - minimalistische Baseline
-# - leichte stilistische Abweichung
-# - starke stilistische Abweichung
-#
-# Welche Bedingungen sich konkret voneinander
-# unterscheiden, muss anhand der deskriptiven
-# Kennwerte bzw. durch paarweise Vergleiche
-# untersucht werden.
-#
-#
-# 3. Interaktion CVPA-Gruppe x Stärke:
-
-#
-# Da p > .05, liegt kein signifikanter
-# Interaktionseffekt zwischen CVPA-Gruppe
-# und Stärke vor.
-#
-# Die Veränderung der wahrgenommenen
-# Inkonsistenz über Baseline, leichte und
-# starke stilistische Abweichung unterscheidet
-# sich somit nicht signifikant zwischen
-# Personen mit einem CVPA unterhalb und
-# oberhalb des Gesamtmittelwerts.
-#
-#
-# Fazit:
-#
-# Die Stärke der stilistischen Abweichung hat
-# einen deutlichen Einfluss auf die wahrgenommene
-# stilistische Inkonsistenz.
-#
-# Es gibt jedoch keinen Hinweis darauf, dass
-# dieser Stärkeeffekt vom CVPA der Personen
-# abhängt.
-
-
 
 #############################################################################################################
-#### Unterschiede nach CVPA: Stärke Schuh ###################################################################
+#### 5. Stärke Schuh × CVPA ##################################################################################
 #############################################################################################################
 
-
-# Fragestellung:
-#
-# Unterscheidet sich der Einfluss einer starken stilistischen
-# Abweichung durch den Schuh auf die wahrgenommene Inkonsistenz
-# zwischen Personen mit einem CVPA unterhalb und oberhalb
-# des Gesamtmittelwerts?
-#
-#
-# DV:
-# Wahrgenommene stilistische Inkonsistenz
-#
-#
-# Faktor 1: Stärke
-#
-# baseline:
-# Min-Baseline
-#
-# stark:
-# Schuh-stark-dezentral
-#
-# -> Within-Subjects-Faktor,
-#    da jede Person beide Outfits bewertet hat.
-#
-#
-# Faktor 2: CVPA-Gruppe
-#
-# unter Mittelwert
-# über Mittelwert
-#
-# -> Between-Subjects-Faktor
-#
-#
-# Daher:
-# -> 2 x 2 Factorial Mixed ANOVA
-#
-#
-# Besonders relevant ist der Interaktionseffekt:
-#
-# Staerke x CVPA_Gruppe
-#
-# Dieser prüft, ob sich der Einfluss der starken
-# stilistischen Abweichung durch den Schuh zwischen
-# Personen mit unterschiedlichem CVPA unterscheidet.
-
-
-#############################################################################################################
-#### Daten vorbereiten ######################################################################################
-#############################################################################################################
-
-
-inkonsistenz_staerke_schuh_cvpa <- salienz_reshaped %>%
-  filter(
-    Condition %in% c(
-      "Min-Baseline",
-      "Schuh-stark-dezentral"
-    )
-  ) %>%
-  mutate(
-    
-    # Faktor Stärke bilden
-    
-    Staerke = case_when(
-      Condition == "Min-Baseline" ~ "baseline",
-      Condition == "Schuh-stark-dezentral" ~ "stark"
-    ),
-    
-    
-    # CVPA-Gruppe als Faktor definieren
-    
-    CVPA_Gruppe = factor(
-      CVPA_Gruppe,
-      levels = c(
-        "unter Mittelwert",
-        "über Mittelwert"
-      )
-    ),
-    
-    
-    # Stärke als Faktor definieren
-    
-    Staerke = factor(
-      Staerke,
-      levels = c(
-        "baseline",
-        "stark"
-      )
-    )
-  ) %>%
-  
-  filter(
-    !is.na(CVPA_Gruppe),
-    !is.na(Staerke),
-    !is.na(Mittelwert_Inkonsistenz)
-  )
-
-
-#############################################################################################################
-#### Nur Personen mit beiden Bedingungen behalten ###########################################################
-#############################################################################################################
-
-
-# Eine Person wird nur berücksichtigt,
-# wenn sowohl die Baseline als auch der
-# stark abweichende Schuh bewertet wurden.
-
-inkonsistenz_staerke_schuh_cvpa <-
-  inkonsistenz_staerke_schuh_cvpa %>%
-  group_by(number) %>%
-  filter(
-    n_distinct(Staerke) == 2
-  ) %>%
-  ungroup()
-
-
-#############################################################################################################
-#### Kontrolle ###############################################################################################
-#############################################################################################################
-
-
-# Jede Person sollte genau zwei Zeilen besitzen.
-
-table(
-  inkonsistenz_staerke_schuh_cvpa$number
+inkonsistenz_staerke_schuh_cvpa <- bereite_cvpa_daten_vor(
+  conditions = c("Min-Baseline", "Schuh-stark-dezentral"),
+  faktor = "Staerke",
+  zuordnung = c(
+    "Min-Baseline" = "baseline",
+    "Schuh-stark-dezentral" = "stark"
+  ),
+  stufen = c("baseline", "stark")
 )
 
-
-# Anzahl Personen je CVPA-Gruppe
+table(inkonsistenz_staerke_schuh_cvpa$number)
 
 inkonsistenz_staerke_schuh_cvpa %>%
-  distinct(
-    number,
-    CVPA_Gruppe
-  ) %>%
-  count(
-    CVPA_Gruppe
-  )
+  distinct(number, CVPA_Gruppe) %>%
+  count(CVPA_Gruppe)
 
-
-#############################################################################################################
-#### Deskriptive Exploration: Boxplots ######################################################################
-#############################################################################################################
-
-
-#### Boxplot 1: Minimalistische Baseline ####
-
-boxplot_staerke_schuh_baseline_cvpa <-
-  inkonsistenz_staerke_schuh_cvpa %>%
-  filter(
-    Staerke == "baseline"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Minimalistische Baseline",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
-speichere_grafik(boxplot_staerke_schuh_baseline_cvpa, "Inkonsistenzbewertung nach CVPA")
-
-print(
-  boxplot_staerke_schuh_baseline_cvpa
+boxplot_staerke_schuh_baseline_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_staerke_schuh_cvpa,
+  "Staerke",
+  "baseline",
+  "Minimalistische Baseline"
 )
-
-
-#### Boxplot 2: starker stilistisch abweichender Schuh ####
-
-boxplot_staerke_schuh_stark_cvpa <-
-  inkonsistenz_staerke_schuh_cvpa %>%
-  filter(
-    Staerke == "stark"
-  ) %>%
-  ggplot(
-    aes(
-      x = CVPA_Gruppe,
-      y = Mittelwert_Inkonsistenz,
-      fill = CVPA_Gruppe
-    )
-  ) +
-  geom_boxplot() +
-  scale_y_continuous(
-    breaks = 1:5,
-    limits = c(1, 5)
-  ) +
-  labs(
-    title = "Inkonsistenzbewertung nach CVPA",
-    subtitle = "Stark stilistisch abweichender Schuh: dezentral",
-    x = "CVPA-Gruppe",
-    y = "Wahrgenommene stilistische Inkonsistenz"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none"
-  )
-speichere_grafik(boxplot_staerke_schuh_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
-
-print(
-  boxplot_staerke_schuh_stark_cvpa
+speichere_grafik(
+  boxplot_staerke_schuh_baseline_cvpa,
+  "Inkonsistenzbewertung nach CVPA"
 )
+print(boxplot_staerke_schuh_baseline_cvpa)
 
+boxplot_staerke_schuh_stark_cvpa <- erstelle_cvpa_boxplot(
+  inkonsistenz_staerke_schuh_cvpa,
+  "Staerke",
+  "stark",
+  "Stark stilistisch abweichender Schuh: dezentral"
+)
+speichere_grafik(
+  boxplot_staerke_schuh_stark_cvpa,
+  "Inkonsistenzbewertung nach CVPA"
+)
+print(boxplot_staerke_schuh_stark_cvpa)
 
-#############################################################################################################
-#### Deskriptive Kennwerte ##################################################################################
-#############################################################################################################
-
-
-deskriptiv_staerke_schuh_cvpa <-
-  inkonsistenz_staerke_schuh_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Staerke
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE),
-    Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE),
-    SD = sd(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE), .groups = "drop")
+deskriptiv_staerke_schuh_cvpa <- deskriptiv_cvpa(
+  inkonsistenz_staerke_schuh_cvpa,
+  "Staerke"
+)
 deskriptiv_staerke_schuh_cvpa
 
-
-#############################################################################################################
-#### Interpretation der deskriptiven Kennwerte ##############################################################
-#############################################################################################################
-
-
-# CVPA unter Mittelwert:
-#
-# Baseline:
-# M = 1.91, SD = 0.87
-#
-# Starker stilistisch abweichender Schuh:
-# M = 2.16, SD = 0.84
-#
-# Differenz:
-#
-# 2.16 - 1.91 = 0.25
-#
-#
-# CVPA über Mittelwert:
-#
-# Baseline:
-# M = 1.66, SD = 0.69
-#
-# Starker stilistisch abweichender Schuh:
-# M = 2.00, SD = 0.83
-#
-# Differenz:
-#
-# 2.00 - 1.66 = 0.34
-#
-#
-# In beiden CVPA-Gruppen wird das Outfit mit dem
-# stark stilistisch abweichenden Schuh deskriptiv
-# inkonsistenter wahrgenommen als die minimalistische
-# Baseline.
-#
-# Der Anstieg fällt bei Personen mit einem CVPA
-# oberhalb des Gesamtmittelwerts etwas stärker aus:
-#
-# unter Mittelwert: +0.25
-# über Mittelwert:  +0.34
-#
-# Der Unterschied zwischen den beiden Effekten
-# beträgt jedoch lediglich:
-#
-# 0.34 - 0.25 = 0.09
-#
-# Deskriptiv deutet dies nur auf einen sehr kleinen
-# möglichen Interaktionseffekt zwischen CVPA-Gruppe
-# und Stärke hin.
-#
-# Ob dieser Unterschied statistisch signifikant ist,
-# wird im Folgenden inferenzstatistisch geprüft.
-
-
-#############################################################################################################
-#### Annahmen der Factorial Mixed ANOVA #####################################################################
-#############################################################################################################
-
-
-#############################################################################################################
-#### Modell zunächst schätzen ###############################################################################
-#############################################################################################################
-
-
-# Das Modell wird zunächst geschätzt,
-# damit anschließend die Residuen geprüft werden können.
-
-anova_staerke_schuh_cvpa <- aov_ez(
-  id = "number",
-  dv = "Mittelwert_Inkonsistenz",
-  within = "Staerke",
-  between = "CVPA_Gruppe",
-  data = inkonsistenz_staerke_schuh_cvpa
+anova_staerke_schuh_cvpa <- schaetze_cvpa_anova(
+  inkonsistenz_staerke_schuh_cvpa,
+  "Staerke",
+  "anova_staerke_schuh_cvpa"
 )
-speichere_p_werte(anova_staerke_schuh_cvpa, "anova_staerke_schuh_cvpa")
+residuen_staerke_schuh_cvpa <- residuals(anova_staerke_schuh_cvpa$lm)
 
-
-#############################################################################################################
-#### 1. Normalverteilung der Residuen ########################################################################
-#############################################################################################################
-
-
-# Residuen extrahieren
-
-residuen_staerke_schuh_cvpa <- residuals(
-  anova_staerke_schuh_cvpa$lm
-)
-
-
-#### Density Plot ####
-
+# Density Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke_schuh_cvpa
-      )
-    ),
-    aes(
-      x = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke_schuh_cvpa)),
+    aes(x = Residuen)
   ) +
     geom_density() +
     labs(
@@ -5687,57 +3651,17 @@ zeige_und_speichere_grafik(
   "Density Plot der Residuen"
 )
 
-
-#### Shapiro-Wilk-Test ####
-
-
-# H0:
-# Die Residuen sind normalverteilt.
-#
-# H1:
-# Die Residuen sind nicht normalverteilt.
-
-shapiro_auto_15 <- shapiro.test(
-  as.numeric(
-    residuen_staerke_schuh_cvpa
-  )
+shapiro_auto_15 <- shapiro_residuen_cvpa(
+  residuen_staerke_schuh_cvpa,
+  "shapiro_auto_15"
 )
-speichere_p_werte(shapiro_auto_15, "shapiro_auto_15")
 shapiro_auto_15
 
-
-# Interpretation:
-# Da p < .05, wird H0 verworfen.
-#
-# Die Residuen weichen statistisch signifikant
-# von einer Normalverteilung ab.
-#
-# Im Gegensatz zu den vorherigen Analysen zeigt
-# auch der QQ-Plot deutliche Abweichungen von
-# der Referenzlinie.
-#
-# Die Normalverteilungsannahme wird daher
-# nicht als ausreichend erfüllt beurteilt.
-#
-# Aus diesem Grund wird die klassische
-# Factorial Mixed ANOVA nicht interpretiert.
-#
-# Stattdessen wird eine robuste Between-Within-ANOVA
-# durchgeführt.
-
-
-#### QQ-Plot ####
-
+# QQ-Plot
 zeige_und_speichere_grafik(
   ggplot(
-    data.frame(
-      Residuen = as.numeric(
-        residuen_staerke_schuh_cvpa
-      )
-    ),
-    aes(
-      sample = Residuen
-    )
+    data.frame(Residuen = as.numeric(residuen_staerke_schuh_cvpa)),
+    aes(sample = Residuen)
   ) +
     stat_qq() +
     stat_qq_line() +
@@ -5751,102 +3675,23 @@ zeige_und_speichere_grafik(
   "QQ-Plot der Residuen"
 )
 
-
-#############################################################################################################
-#### 2. Varianzhomogenität ##################################################################################
-#############################################################################################################
-
-
-# CVPA_Gruppe ist der Between-Subjects-Faktor.
-#
-# Daher wird für beide Bedingungen geprüft,
-# ob die Varianzen zwischen den beiden
-# CVPA-Gruppen homogen sind.
-
-
-#### Minimalistische Baseline ####
-
-levene_auto_23 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke_schuh_cvpa %>%
-    filter(
-      Staerke == "baseline"
-    )
+levene_auto_23 <- levene_cvpa(
+  inkonsistenz_staerke_schuh_cvpa, "Staerke", "baseline", "levene_auto_23"
 )
-speichere_p_werte(levene_auto_23, "levene_auto_23")
 levene_auto_23
 
-
-#### Starker stilistisch abweichender Schuh ####
-
-levene_auto_24 <- leveneTest(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe,
-  data = inkonsistenz_staerke_schuh_cvpa %>%
-    filter(
-      Staerke == "stark"
-    )
+levene_auto_24 <- levene_cvpa(
+  inkonsistenz_staerke_schuh_cvpa, "Staerke", "stark", "levene_auto_24"
 )
-speichere_p_werte(levene_auto_24, "levene_auto_24")
 levene_auto_24
 
-
-# Interpretation:
-#
-# p > .05:
-# -> Varianzhomogenität gegeben
-#
-# Die Varianzhomogenität ist somit für beide
-# Bedingungen erfüllt.
-
-
-#############################################################################################################
-#### Robuste deskriptive Kennwerte ##########################################################################
-#############################################################################################################
-
-
-# Da die robuste ANOVA mit getrimmten Mittelwerten arbeitet,
-# werden zusätzlich die 20 % getrimmten Mittelwerte berechnet.
-
-deskriptiv_staerke_schuh_cvpa_robust <-
-  inkonsistenz_staerke_schuh_cvpa %>%
-  group_by(
-    CVPA_Gruppe,
-    Staerke
-  ) %>%
-  summarise(
-    
-    n = n(),
-    
-    Getrimmter_Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      trim = 0.20,
-      na.rm = TRUE
-    ),
-    
-    Median = median(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    IQR = IQR(
-      Mittelwert_Inkonsistenz,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
+deskriptiv_staerke_schuh_cvpa_robust <- deskriptiv_cvpa_robust(
+  inkonsistenz_staerke_schuh_cvpa,
+  "Staerke"
+)
 deskriptiv_staerke_schuh_cvpa_robust
 
-
-#############################################################################################################
-#### Robuste 2 x 2 Factorial Mixed ANOVA: Stärke Schuh x CVPA ###############################################
-#############################################################################################################
-
-
 library(WRS2)
-
 
 robust_anova_staerke_schuh_cvpa <- bwtrim(
   Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
@@ -5854,12 +3699,7 @@ robust_anova_staerke_schuh_cvpa <- bwtrim(
   data = inkonsistenz_staerke_schuh_cvpa,
   tr = 0.20
 )
-
-
 robust_anova_staerke_schuh_cvpa
-
-#### Interpretation der robusten Mixed ANOVA
-
 
 
 
