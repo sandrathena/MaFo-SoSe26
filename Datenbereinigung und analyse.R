@@ -146,7 +146,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.08))) +
     labs(
-      title = "Altersverteilung der Stichprobe",
+      title = "Altersverteilung der Stichprobe n = 247",
       x = "Alter in Jahren",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -186,7 +186,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title = "Geschlechterverteilung der Stichprobe",
+      title = "Geschlechterverteilung der Stichprobe n = 247",
       x = "Geschlecht",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -233,7 +233,7 @@ zeige_und_speichere_grafik(
       expand = expansion(
         mult = c(0, 0.15))) +
     labs(
-      title = "Einkommensverteilung der Stichprobe",
+      title = "Einkommensverteilung der Stichprobe n = 247",
       x = "Monatliches Netto-Haushaltseinkommen",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -276,7 +276,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title = "Tätigkeitsverteilung der Stichprobe",
+      title = "Tätigkeitsverteilung der Stichprobe n = 247",
       x = "Aktuelle Haupttätigkeit",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -712,7 +712,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.08))) +
     labs(
-      title = "Altersverteilung der Stichprobe",
+      title = "Altersverteilung der Stichprobe n = 136",
       x = "Alter [in Jahren]",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -753,7 +753,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title = "Geschlechterverteilung der Stichprobe",
+      title = "Geschlechterverteilung der Stichprobe n = 136",
       x = "Geschlecht",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -800,7 +800,7 @@ zeige_und_speichere_grafik(
       expand = expansion(
         mult = c(0, 0.15))) +
     labs(
-      title = "Einkommensverteilung der Stichprobe",
+      title = "Einkommensverteilung der Stichprobe n = 136",
       x = "Monatliches Netto-Haushaltseinkommen",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -843,7 +843,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title = "Tätigkeitsverteilung der Stichprobe",
+      title = "Tätigkeitsverteilung der Stichprobe n = 136",
       x = "Aktuelle Haupttätigkeit",
       y = "Anzahl der Teilnehmenden") +
     theme_minimal() +
@@ -4267,22 +4267,138 @@ print(ergebnisse_ermuedung)
 
 
 
+
+
 #############################################################################################################
 #### Ausblick ###############################################################################################
 #############################################################################################################
 
 
-#### Stilzuordnung prüfen ###################################################################################
+#### Stilzuordnung prüfen #####################################################################################
 
+# Stilbewertungen ins Long-Format bringen
+stilzuordnung_long <- salienz_reshaped %>%
+  dplyr::select(
+    number,
+    Condition,
+    Minimalismus,
+    HipHopActiveWear,
+    HippieBoho
+  ) %>%
+  pivot_longer(
+    cols = c(
+      Minimalismus,
+      HipHopActiveWear,
+      HippieBoho
+    ),
+    names_to = "Stil",
+    values_to = "Bewertung"
+  ) %>%
+  mutate(
+    Bewertung = as.numeric(Bewertung),
+    
+    Stil = factor(
+      Stil,
+      levels = c(
+        "Minimalismus",
+        "HipHopActiveWear",
+        "HippieBoho"
+      ),
+      labels = c(
+        "Minimalismus",
+        "HipHopActiveWear",
+        "HippieBoho"
+      )
+    ),
+    
+    Condition = factor(
+      Condition,
+      levels = c(
+        "Jacke-stark-dezentral",
+        "Jacke-leicht-dezentral",
+        "Schuh-stark-dezentral",
+        "Jacke-stark-zentral",
+        "Min-Baseline"
+      ),
+      labels = c(
+        "Jacke stark\ndezentral",
+        "Jacke leicht\ndezentral",
+        "Schuh stark\ndezentral",
+        "Jacke stark\nzentral",
+        "Minimalistische\nBaseline"
+      )
+    )
+  )
 
+# Mittelwerte und Standardfehler berechnen
+stilzuordnung_summary <- stilzuordnung_long %>%
+  group_by(Condition, Stil) %>%
+  summarise(
+    Mittelwert = mean(Bewertung, na.rm = TRUE),
+    SE = sd(Bewertung, na.rm = TRUE) / sqrt(sum(!is.na(Bewertung))),
+    .groups = "drop"
+  )
 
-
-
+# Liniengraph mit Fehlerbalken
+zeige_und_speichere_grafik(
+  ggplot(
+    stilzuordnung_summary,
+    aes(
+      x = Condition,
+      y = Mittelwert,
+      color = Stil,
+      group = Stil
+    )
+  ) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 2.5) +
+    geom_errorbar(
+      aes(
+        ymin = Mittelwert - SE,
+        ymax = Mittelwert + SE
+      ),
+      width = 0.08,
+      linewidth = 0.7
+    ) +
+    scale_y_continuous(
+      breaks = seq(1, 5, by = 0.5),
+      limits = c(1, 5.2)
+    ) +
+    scale_color_manual(
+      values = c(
+        "Minimalismus" = "#8B6F47",
+        "HipHopActiveWear" = "#CDAA7D",
+        "HippieBoho" = "#EED5B7"
+      ),
+      labels = c(
+        "Minimalismus",
+        "Hip Hop / Active Wear",
+        "Hippie / Boho"
+      )
+    ) +
+    labs(
+      title = "Überprüfung der wahrgenommenen Stilzuordnung",
+      x = NULL,
+      y = "Stilbewertung (trifft nicht zu 1 – 5 trifft zu)",
+      color = NULL
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(
+        hjust = 0.5
+      ),
+      legend.position = "top"
+    ),
+  "Manipulationscheck der wahrgenommenen Stilzuordnung"
+)
 
 
 
 
 #### Mediation mit Stilistischer Inkonsistenz als Mediator ##################################################
+
+
+
 
 
 
