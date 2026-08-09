@@ -4264,6 +4264,249 @@ print(ergebnisse_ermuedung)
 #############################################################################################################
 
 
+#### IRGENDWAS MIT DEN LMER PAKETEN STIMMT HIE RNICHT BRUH
+
+
+#############################################################################################################
+#### Hypothese 1: Größe -> Fluency -> Inkonsistenz
+#############################################################################################################
+
+# Relevante Bedingungen auswählen
+mediation_groesse <- salienz_reshaped %>%
+  filter(Condition %in% c("Schuh-stark-dezentral", "Jacke-stark-dezentral")) %>%
+  mutate(Groesse = ifelse(Condition == "Jacke-stark-dezentral", 1, 0)) %>%
+  drop_na(number, Mittelwert_Fluency, Mittelwert_Inkonsistenz)
+
+#### Voraussetzungen der Regression prüfen
+model_groesse <- lmer(
+  Mittelwert_Inkonsistenz ~ Groesse + Mittelwert_Fluency + (1 | number),
+  data = mediation_groesse
+)
+summary(model_groesse)
+
+# 1. Ausreißer / einflussreiche Personen
+influence_groesse <- influence(model_groesse, groups = "number")
+cooks_groesse <- cooks.distance(influence_groesse)
+
+plot(
+  cooks_groesse,
+  type = "h",
+  main = "Cook's Distance – Größe",
+  xlab = "Versuchsperson",
+  ylab = "Cook's Distance"
+)
+
+# 2. Normalverteilung der Residuen
+residuen_groesse <- residuals(model_groesse)
+shapiro.test(residuen_groesse)
+qqnorm(residuen_groesse)
+qqline(residuen_groesse)
+
+# 3. Homoskedastizität der Residuen
+plot(
+  fitted(model_groesse),
+  residuen_groesse,
+  xlab = "Vorhergesagte Werte",
+  ylab = "Residuen",
+  main = "Residuen vs. vorhergesagte Werte – Größe"
+)
+abline(h = 0, lty = 2)
+
+# 4. Multikollinearität
+vif(model_groesse)
+
+# 5. Unabhängigkeit der Beobachtungen
+# Abhängigkeit wiederholter Messungen wird durch (1 | number) berücksichtigt.
+
+#### Mediation
+
+# 1. Effekt von UV auf M = Pfad A
+pfad_a_groesse <- lmer(
+  Mittelwert_Fluency ~ Groesse + (1 | number),
+  data = mediation_groesse
+)
+summary(pfad_a_groesse)
+
+# 2. Effekt von UV und M auf AV
+pfad_b_c_groesse <- lmer(
+  Mittelwert_Inkonsistenz ~ Groesse + Mittelwert_Fluency + (1 | number),
+  data = mediation_groesse
+)
+summary(pfad_b_c_groesse)
+
+# 3. Untersuchung des Mediationseffektes
+set.seed(123)
+results_groesse <- mediate(
+  pfad_a_groesse,
+  pfad_b_c_groesse,
+  treat = "Groesse",
+  mediator = "Mittelwert_Fluency",
+  sims = 5000,
+  boot = FALSE,
+  group.out = "number"
+)
+class(pfad_a_groesse)
+summary(results_groesse)
+
+#############################################################################################################
+#### Hypothese 2: Stärke -> Fluency -> Inkonsistenz
+#############################################################################################################
+
+# Relevante Bedingungen auswählen
+mediation_staerke <- salienz_reshaped %>%
+  filter(Condition %in% c("Jacke-leicht-dezentral", "Jacke-stark-dezentral")) %>%
+  mutate(Staerke = ifelse(Condition == "Jacke-stark-dezentral", 1, 0)) %>%
+  drop_na(number, Mittelwert_Fluency, Mittelwert_Inkonsistenz)
+
+#### Voraussetzungen der Regression prüfen
+model_staerke <- lmer(
+  Mittelwert_Inkonsistenz ~ Staerke + Mittelwert_Fluency + (1 | number),
+  data = mediation_staerke
+)
+summary(model_staerke)
+
+# 1. Ausreißer / einflussreiche Personen
+influence_staerke <- influence(model_staerke, groups = "number")
+cooks_staerke <- cooks.distance(influence_staerke)
+
+plot(
+  cooks_staerke,
+  type = "h",
+  main = "Cook's Distance – Stärke",
+  xlab = "Versuchsperson",
+  ylab = "Cook's Distance"
+)
+
+# 2. Normalverteilung der Residuen
+residuen_staerke <- residuals(model_staerke)
+shapiro.test(residuen_staerke)
+qqnorm(residuen_staerke)
+qqline(residuen_staerke)
+
+# 3. Homoskedastizität der Residuen
+plot(
+  fitted(model_staerke),
+  residuen_staerke,
+  xlab = "Vorhergesagte Werte",
+  ylab = "Residuen",
+  main = "Residuen vs. vorhergesagte Werte – Stärke"
+)
+abline(h = 0, lty = 2)
+
+# 4. Multikollinearität
+vif(model_staerke)
+
+# 5. Unabhängigkeit der Beobachtungen
+# Abhängigkeit wiederholter Messungen wird durch (1 | number) berücksichtigt.
+
+#### Mediation
+
+# 1. Effekt von UV auf M = Pfad A
+pfad_a_staerke <- lmer(
+  Mittelwert_Fluency ~ Staerke + (1 | number),
+  data = mediation_staerke
+)
+summary(pfad_a_staerke)
+
+# 2. Effekt von UV und M auf AV
+pfad_b_c_staerke <- lmer(
+  Mittelwert_Inkonsistenz ~ Staerke + Mittelwert_Fluency + (1 | number),
+  data = mediation_staerke
+)
+summary(pfad_b_c_staerke)
+
+# 3. Untersuchung des Mediationseffektes
+set.seed(123)
+results_staerke <- mediate(
+  pfad_a_staerke,
+  pfad_b_c_staerke,
+  treat = "Staerke",
+  mediator = "Mittelwert_Fluency",
+  sims = 5000,
+  boot = FALSE,
+  group.out = "number"
+)
+summary(results_staerke)
+
+#############################################################################################################
+#### Hypothese 3: Position -> Fluency -> Inkonsistenz
+#############################################################################################################
+
+# Relevante Bedingungen auswählen
+mediation_position <- salienz_reshaped %>%
+  filter(Condition %in% c("Jacke-stark-dezentral", "Jacke-stark-zentral")) %>%
+  mutate(Position = ifelse(Condition == "Jacke-stark-zentral", 1, 0)) %>%
+  drop_na(number, Mittelwert_Fluency, Mittelwert_Inkonsistenz)
+
+#### Voraussetzungen der Regression prüfen
+model_position <- lmer(
+  Mittelwert_Inkonsistenz ~ Position + Mittelwert_Fluency + (1 | number),
+  data = mediation_position
+)
+summary(model_position)
+
+# 1. Ausreißer / einflussreiche Personen
+influence_position <- influence(model_position, groups = "number")
+cooks_position <- cooks.distance(influence_position)
+
+plot(
+  cooks_position,
+  type = "h",
+  main = "Cook's Distance – Position",
+  xlab = "Versuchsperson",
+  ylab = "Cook's Distance"
+)
+
+# 2. Normalverteilung der Residuen
+residuen_position <- residuals(model_position)
+shapiro.test(residuen_position)
+qqnorm(residuen_position)
+qqline(residuen_position)
+
+# 3. Homoskedastizität der Residuen
+plot(
+  fitted(model_position),
+  residuen_position,
+  xlab = "Vorhergesagte Werte",
+  ylab = "Residuen",
+  main = "Residuen vs. vorhergesagte Werte – Position"
+)
+abline(h = 0, lty = 2)
+
+# 4. Multikollinearität
+vif(model_position)
+
+# 5. Unabhängigkeit der Beobachtungen
+# Abhängigkeit wiederholter Messungen wird durch (1 | number) berücksichtigt.
+
+#### Mediation
+
+# 1. Effekt von UV auf M = Pfad A
+pfad_a_position <- lmer(
+  Mittelwert_Fluency ~ Position + (1 | number),
+  data = mediation_position
+)
+summary(pfad_a_position)
+
+# 2. Effekt von UV und M auf AV
+pfad_b_c_position <- lmer(
+  Mittelwert_Inkonsistenz ~ Position + Mittelwert_Fluency + (1 | number),
+  data = mediation_position
+)
+summary(pfad_b_c_position)
+
+# 3. Untersuchung des Mediationseffektes
+set.seed(123)
+results_position <- mediate(
+  pfad_a_position,
+  pfad_b_c_position,
+  treat = "Position",
+  mediator = "Mittelwert_Fluency",
+  sims = 5000,
+  boot = FALSE,
+  group.out = "number"
+)
+summary(results_position)
 
 
 
