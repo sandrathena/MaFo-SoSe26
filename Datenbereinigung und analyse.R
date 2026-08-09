@@ -1173,11 +1173,11 @@ boxplots_outfits <- ggplot(
   facet_wrap(~ Variable, ncol = 2) +
   scale_fill_manual(
     values = c(
-      "Min-Baseline" = "#EEC591",
-      "Jacke-leicht-dezentral" = "#FFE4C4",
-      "Jacke-stark-dezentral" = "#CD853F",
-      "Jacke-stark-zentral" = "#8B7355",
-      "Schuh-stark-dezentral" = "#8B4513")) +
+      "Min-Baseline" = "#EED5B7",
+      "Jacke-leicht-dezentral" = "#CDAA7D",
+      "Jacke-stark-dezentral" = "#EED5B7",
+      "Jacke-stark-zentral" = "#CDAA7D",
+      "Schuh-stark-dezentral" = "#EED5B7")) +
   scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
   labs(
     title = "Bewertung der fünf Outfits",
@@ -1504,7 +1504,12 @@ plot_box_density <- function(data, farben, subtitle) {
     )
   ) +
     geom_boxplot() +
-    scale_fill_manual(values = farben) +
+    scale_fill_manual(
+      values = rep(
+        c("#EED5B7", "#CDAA7D"),
+        length.out = length(unique(data$Condition))
+      )
+    ) +
     labs(
       title = "Boxplot der Inkonsistenzbewertung",
       subtitle = subtitle,
@@ -2315,14 +2320,13 @@ erstelle_boxplot_geschlecht <- function(data, faktor, stufe, subtitle,
       y = Mittelwert_Inkonsistenz,
       fill = Geschlecht
     )) +
-    geom_boxplot()
-  
-  if (manuelle_farben) {
-    p <- p + scale_fill_manual(
-      values = c("weiblich" = "#EED5B7", "männlich" = "#CDAA7D")
+    geom_boxplot() +
+    scale_fill_manual(
+      values = c(
+        "weiblich" = "#EED5B7",
+        "männlich" = "#CDAA7D"
+      )
     )
-  }
-  
   p <- p +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
@@ -3045,6 +3049,12 @@ erstelle_cvpa_boxplot <- function(data, faktor, stufe, subtitle) {
       )
     ) +
     geom_boxplot() +
+    scale_fill_manual(
+      values = c(
+        "unter Mittelwert" = "#EED5B7",
+        "über Mittelwert" = "#CDAA7D"
+      )
+    ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
       title = "Inkonsistenzbewertung nach CVPA",
@@ -3642,6 +3652,12 @@ zeige_und_speichere_grafik(
     )
   ) +
     geom_boxplot(position = position_dodge(width = 0.8)) +
+    scale_fill_manual(
+      values = c(
+        "unter Mittelwert" = "#EED5B7",
+        "über Mittelwert" = "#CDAA7D"
+      )
+    ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
       title = "Inkonsistenzbewertung nach Stärke und CVPA",
