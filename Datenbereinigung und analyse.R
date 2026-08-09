@@ -1224,3 +1224,227 @@ write.csv(
 
 
 
+
+
+
+
+###############################################################################################################
+#### p-Werte in Berechnungsreihenfolge speichern ##############################################################
+###############################################################################################################
+
+# Die Tabelle wird während der Analyse fortlaufend befüllt.
+# Dadurch entspricht die Reihenfolge der Zeilen exakt der Reihenfolge,
+# in der die jeweiligen Tests im Code ausgeführt werden.
+p_werte_tabelle <- data.frame(
+  Reihenfolge = integer(),
+  Objekt = character(),
+  Bestandteil = character(),
+  Zeile = character(),
+  p_Typ = character(),
+  p_Wert = numeric(),
+  stringsAsFactors = FALSE
+)
+
+p_wert_zaehler <- 0L
+
+# Leere Hilfstabelle
+leere_p_wert_tabelle <- function() {
+  data.frame(
+    Objekt = character(),
+    Bestandteil = character(),
+    Zeile = character(),
+    p_Typ = character(),
+    p_Wert = numeric(),
+    stringsAsFactors = FALSE
+  )
+}
+
+# p-Werte aus einem Testergebnis extrahieren
+extrahiere_p_werte <- function(objekt, objektname, bestandteil = "", tiefe = 0) {
+  if (tiefe > 6) {
+    return(leere_p_wert_tabelle())
+  }
+  
+  # Klassische Tests aus stats, z. B. Shapiro-Wilk, t-Test, Wilcoxon oder Friedman
+  if (inherits(objekt, "htest")) {
+    return(
+      data.frame(
+        Objekt = objektname,
+        Bestandteil = ifelse(bestandteil == "", objekt$method, bestandteil),
+        Zeile = "",
+        p_Typ = "p.value",
+        p_Wert = as.numeric(objekt$p.value),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  
+  # afex-ANOVA
+  if (inherits(objekt, "afex_aov")) {
+    return(
+      extrahiere_p_werte(
+        as.data.frame(objekt$anova_table),
+        objektname,
+        ifelse(bestandteil == "", "anova_table", paste0(bestandteil, "$anova_table")),
+        tiefe + 1
+      )
+    )
+  }
+  
+  # Tabellen und Matrizen, z. B. Levene-, Post-hoc- oder Mauchly-Tabellen
+  if (is.data.frame(objekt) || is.matrix(objekt)) {
+    daten <- as.data.frame(objekt)
+    
+    p_spalten <- names(daten)[
+      grepl(
+        "(^p($|[._ -])|[._ -]p($|[._ -])|Pr\\(|p-value)",
+        names(daten),
+        ignore.case = TRUE
+      )
+    ]
+    
+    if (length(p_spalten) == 0 || nrow(daten) == 0) {
+      return(leere_p_wert_tabelle())
+    }
+    
+    beschriftungs_spalten <- intersect(
+      c(
+        "Effect", "effect", "group1", "group2", ".y.",
+        "Outfit", "Konstrukt", "Condition", "Reihenfolge", "Test"
+      ),
+      names(daten)
+    )
+    
+    ergebnis <- list()
+    k <- 1L
+    
+    # Zeilenweise durchgehen, damit auch innerhalb einer Ergebnistabelle
+    # die sichtbare Reihenfolge erhalten bleibt.
+    for (i in seq_len(nrow(daten))) {
+      zeilen_name <- rownames(daten)[i]
+      
+      if (length(beschriftungs_spalten) > 0) {
+        zeilen_name <- paste(
+          as.character(daten[i, beschriftungs_spalten, drop = TRUE]),
+          collapse = " | "
+        )
+      }
+      
+      for (p_spalte in p_spalten) {
+        p_wert <- suppressWarnings(
+          as.numeric(as.character(daten[[p_spalte]][i]))
+        )
+        
+        if (!is.na(p_wert)) {
+          ergebnis[[k]] <- data.frame(
+            Objekt = objektname,
+            Bestandteil = bestandteil,
+            Zeile = zeilen_name,
+            p_Typ = p_spalte,
+            p_Wert = p_wert,
+            stringsAsFactors = FALSE
+          )
+          k <- k + 1L
+        }
+      }
+    }
+    
+    if (length(ergebnis) == 0) {
+      return(leere_p_wert_tabelle())
+    }
+    
+    return(bind_rows(ergebnis))
+  }
+  
+  # Zusammenfassungsobjekte, insbesondere für Sphärizitäts-/Mauchly-Ausgaben
+  if (is.list(objekt) && grepl("summary|Anova", paste(class(objekt), collapse = " "), ignore.case = TRUE)) {
+    teile <- names(objekt)
+    if (is.null(teile)) {
+      teile <- as.character(seq_along(objekt))
+    }
+    
+    return(
+      bind_rows(
+        lapply(
+          seq_along(objekt),
+          function(i) {
+            neuer_bestandteil <- if (bestandteil == "") {
+              teile[i]
+            } else {
+              paste0(bestandteil, "$", teile[i])
+            }
+            
+            extrahiere_p_werte(
+              objekt[[i]],
+              objektname,
+              neuer_bestandteil,
+              tiefe + 1
+            )
+          }
+        )
+      )
+    )
+  }
+  
+  leere_p_wert_tabelle()
+}
+
+# Ein Testergebnis sofort in die Gesamttabelle schreiben.
+# Weil diese Funktion direkt nach dem jeweiligen Test aufgerufen wird,
+# bleibt die Berechnungsreihenfolge erhalten.
+speichere_p_werte <- function(objekt, objektname, bestandteil = "") {
+  neue_p_werte <- extrahiere_p_werte(
+    objekt,
+    objektname,
+    bestandteil
+  )
+  
+  if (nrow(neue_p_werte) > 0) {
+    neue_p_werte$Reihenfolge <- seq.int(
+      p_wert_zaehler + 1L,
+      p_wert_zaehler + nrow(neue_p_werte)
+    )
+    
+    p_wert_zaehler <<- p_wert_zaehler + nrow(neue_p_werte)
+    
+    neue_p_werte <- neue_p_werte %>%
+      select(
+        Reihenfolge,
+        Objekt,
+        Bestandteil,
+        Zeile,
+        p_Typ,
+        p_Wert
+      )
+    
+    p_werte_tabelle <<- bind_rows(
+      p_werte_tabelle,
+      neue_p_werte
+    )
+  }
+  
+  invisible(objekt)
+}
+
+# Einzelnen p-Wert speichern, z. B. einen erst nachträglich Holm-korrigierten p-Wert.
+speichere_p_wert_einzeln <- function(objektname, bestandteil, zeile, p_typ, p_wert) {
+  if (!is.na(p_wert)) {
+    p_wert_zaehler <<- p_wert_zaehler + 1L
+    
+    p_werte_tabelle <<- bind_rows(
+      p_werte_tabelle,
+      data.frame(
+        Reihenfolge = p_wert_zaehler,
+        Objekt = objektname,
+        Bestandteil = bestandteil,
+        Zeile = zeile,
+        p_Typ = p_typ,
+        p_Wert = as.numeric(p_wert),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+}
+
+
+
