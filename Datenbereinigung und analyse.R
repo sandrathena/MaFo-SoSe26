@@ -1574,7 +1574,8 @@ deskriptive_kennwerte <- function(data) {
 # Normalverteilung graphisch prüfen
 plot_differenz <- function(data, subtitle) {
   
-  plot <- ggplot(
+  # Density Plot
+  density_plot <- ggplot(
     data,
     aes(x = Differenz_Inkonsistenz)
   ) +
@@ -1598,11 +1599,41 @@ plot_differenz <- function(data, subtitle) {
     )
   
   speichere_grafik(
-    plot,
+    density_plot,
     paste0("Density_Differenzwerte_", subtitle)
   )
+  print(density_plot)
   
-  plot
+  # QQ-Plot
+  qq_plot <- ggplot(
+    data,
+    aes(sample = Differenz_Inkonsistenz)
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Differenzwerte",
+      subtitle = subtitle,
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    )
+  
+  speichere_grafik(
+    qq_plot,
+    paste0("QQ_Differenzwerte_", subtitle)
+  )
+  print(qq_plot)
+  
+  invisible(list(
+    Density = density_plot,
+    QQ = qq_plot
+  ))
 }
 
 
@@ -1917,11 +1948,61 @@ anova_staerke <- aov_ez(
 )
 speichere_p_werte(anova_staerke, "anova_staerke")
 
-# Shapiro Wilk Test
+# Residuen extrahieren
 residuen_staerke <- residuals(anova_staerke$lm)
+
+# Normalverteilung graphisch prüfen: Density Plot
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(Residuen = as.numeric(residuen_staerke)),
+    aes(x = Residuen)
+  ) +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
+    labs(
+      title = "Density Plot der Residuen",
+      subtitle = "Repeated-Measures-ANOVA: Stärke",
+      x = "Residuen",
+      y = "Dichte"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
+  "Density Plot der Residuen - Stärke"
+)
+
+# Normalverteilung mit Shapiro-Wilk prüfen
 shapiro_auto_04 <- shapiro.test(residuen_staerke)
 speichere_p_werte(shapiro_auto_04, "shapiro_auto_04")
 shapiro_auto_04
+
+# Normalverteilung graphisch prüfen: QQ-Plot
+zeige_und_speichere_grafik(
+  ggplot(
+    data.frame(Residuen = as.numeric(residuen_staerke)),
+    aes(sample = Residuen)
+  ) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(
+      title = "QQ-Plot der Residuen",
+      subtitle = "Repeated-Measures-ANOVA: Stärke",
+      x = "Theoretische Quantile",
+      y = "Beobachtete Quantile"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
+  "QQ-Plot der Residuen - Stärke"
+)
 
 # p < 0.05 -> H0 verwerfen -> Friedman-Test
 
@@ -2288,7 +2369,7 @@ schaetze_mixed_anova <- function(data, faktor, name) {
   modell
 }
 
-density_residuen <- function(residuen, subtitle, farbig = FALSE, zentriert = FALSE) {
+density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE) {
   p <- ggplot(
     data.frame(Residuen = as.numeric(residuen)),
     aes(x = Residuen)
@@ -2302,7 +2383,12 @@ density_residuen <- function(residuen, subtitle, farbig = FALSE, zentriert = FAL
       linewidth = 1
     )
   } else {
-    p <- p + geom_density()
+    p <- p + geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    )
   }
   
   p <- p +
@@ -2327,7 +2413,7 @@ density_residuen <- function(residuen, subtitle, farbig = FALSE, zentriert = FAL
 
 qq_residuen <- function(residuen, subtitle,
                         titel = "QQ-Plot der Residuen",
-                        zentriert = FALSE) {
+                        zentriert = TRUE) {
   p <- ggplot(
     data.frame(Residuen = as.numeric(residuen)),
     aes(sample = Residuen)
@@ -3017,14 +3103,23 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
       data.frame(Residuen = as.numeric(residuen)),
       aes(x = Residuen)
     ) +
-      geom_density() +
+      geom_density(
+        fill = "#EED5B7",
+        color = "#8B6F47",
+        alpha = 0.4,
+        linewidth = 1
+      ) +
       labs(
         title = "Density Plot der Residuen",
         subtitle = subtitle,
         x = "Residuen",
         y = "Dichte"
       ) +
-      theme_minimal(),
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5)
+      ),
     "Density Plot der Residuen"
   )
   
@@ -3041,7 +3136,11 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
         x = "Theoretische Quantile",
         y = "Beobachtete Quantile"
       ) +
-      theme_minimal(),
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5)
+      ),
     "QQ-Plot der Residuen"
   )
 }
@@ -3117,14 +3216,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_position_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Position × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3148,7 +3256,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3225,14 +3337,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3256,7 +3377,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3284,14 +3409,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3315,7 +3449,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3402,14 +3540,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_staerke_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3433,7 +3580,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3522,14 +3673,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_staerke3_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3553,7 +3713,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3644,14 +3808,23 @@ zeige_und_speichere_grafik(
     data.frame(Residuen = as.numeric(residuen_staerke_schuh_cvpa)),
     aes(x = Residuen)
   ) +
-    geom_density() +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
     labs(
       title = "Density Plot der Residuen",
       subtitle = "Factorial Mixed ANOVA: Stärke Schuh × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "Density Plot der Residuen"
 )
 
@@ -3675,7 +3848,11 @@ zeige_und_speichere_grafik(
       x = "Theoretische Quantile",
       y = "Beobachtete Quantile"
     ) +
-    theme_minimal(),
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
   "QQ-Plot der Residuen"
 )
 
@@ -3846,7 +4023,31 @@ shapiro_ermuedung <- ermuedung_plot %>%
 print(shapiro_ermuedung)
 speichere_p_werte(shapiro_ermuedung, "shapiro_ermuedung")
 
-# Normalverteilung grafisch prüfen
+# Normalverteilung grafisch prüfen: Density Plots
+zeige_und_speichere_grafik(
+  ggplot(ermuedung_plot, aes(x = Mittelwert_Inkonsistenz)) +
+    geom_density(
+      fill = "#EED5B7",
+      color = "#8B6F47",
+      alpha = 0.4,
+      linewidth = 1
+    ) +
+    facet_grid(Condition ~ Reihenfolge) +
+    labs(
+      title = "Density Plots der Inkonsistenzbewertung",
+      subtitle = "Erstes vs. letztes gezeigtes Outfit",
+      x = "Wahrgenommene stilistische Inkonsistenz",
+      y = "Dichte"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    ),
+  "Density Plots der Inkonsistenzbewertung"
+)
+
+# Normalverteilung grafisch prüfen: QQ-Plots
 zeige_und_speichere_grafik(
   ggplot(ermuedung_plot, aes(sample = Mittelwert_Inkonsistenz)) +
     stat_qq() +
@@ -3903,6 +4104,56 @@ for (outfit in conditions) {
   
   shapiro_zuletzt <- shapiro.test(zuletzt)
   speichere_p_werte(shapiro_zuletzt, "shapiro_zuletzt", outfit)
+  
+  # Normalverteilung grafisch prüfen: Density Plot
+  zeige_und_speichere_grafik(
+    ggplot(
+      daten_outfit,
+      aes(x = Mittelwert_Inkonsistenz)
+    ) +
+      geom_density(
+        fill = "#EED5B7",
+        color = "#8B6F47",
+        alpha = 0.4,
+        linewidth = 1
+      ) +
+      facet_wrap(~ Reihenfolge) +
+      labs(
+        title = paste("Density Plot:", outfit_namen[outfit]),
+        subtitle = "Als erstes vs. als letztes gezeigt",
+        x = "Wahrgenommene stilistische Inkonsistenz",
+        y = "Dichte"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5)
+      ),
+    paste0("Density_Normalverteilung_Ermuedung_", outfit)
+  )
+  
+  # Normalverteilung grafisch prüfen: QQ-Plot
+  zeige_und_speichere_grafik(
+    ggplot(
+      daten_outfit,
+      aes(sample = Mittelwert_Inkonsistenz)
+    ) +
+      stat_qq() +
+      stat_qq_line() +
+      facet_wrap(~ Reihenfolge) +
+      labs(
+        title = paste("QQ-Plot:", outfit_namen[outfit]),
+        subtitle = "Als erstes vs. als letztes gezeigt",
+        x = "Theoretische Quantile",
+        y = "Beobachtete Quantile"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5)
+      ),
+    paste0("QQ_Normalverteilung_Ermuedung_", outfit)
+  )
   
   # Varianzhomogenität prüfen
   levene_result <- car::leveneTest(
@@ -4044,7 +4295,3 @@ write.csv2(
   row.names = FALSE,
   fileEncoding = "UTF-8"
 )
-
-
-
-
