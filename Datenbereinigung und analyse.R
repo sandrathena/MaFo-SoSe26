@@ -1163,7 +1163,13 @@ bewertungen_long$Condition <- factor(
     "Jacke-leicht-dezentral",
     "Jacke-stark-dezentral",
     "Jacke-stark-zentral",
-    "Schuh-stark-dezentral"))
+    "Schuh-stark-dezentral"),
+  labels = c(
+    "M",
+    "GDL",
+    "GDS",
+    "GZS",
+    "KDS"))
 
 # Alle Boxplots in eine Abbildung
 boxplots_outfits <- ggplot(
@@ -1173,11 +1179,11 @@ boxplots_outfits <- ggplot(
   facet_wrap(~ Variable, ncol = 2) +
   scale_fill_manual(
     values = c(
-      "Min-Baseline" = "#EED5B7",
-      "Jacke-leicht-dezentral" = "#CDAA7D",
-      "Jacke-stark-dezentral" = "#EED5B7",
-      "Jacke-stark-zentral" = "#CDAA7D",
-      "Schuh-stark-dezentral" = "#EED5B7")) +
+      "M" = "#EED5B7",
+      "GDL" = "#CDAA7D",
+      "GDS" = "#EED5B7",
+      "GZS" = "#CDAA7D",
+      "KDS" = "#EED5B7")) +
   scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
   labs(
     title = "Bewertung der fünf Outfits",
@@ -1544,7 +1550,7 @@ plot_box_density <- function(data, farben, subtitle) {
       subtitle = subtitle,
       x = "Wahrgenommene stilistische Inkonsistenz",
       y = "Dichte",
-      color = "Condition"
+      color = "Outfit"
     ) +
     theme_minimal() +
     theme(
@@ -1630,8 +1636,8 @@ plot_groesse <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Schuh stark dezentral",
-    "Jacke stark dezentral"
+    "KDS",
+    "GDS"
   )
 )
 
@@ -1639,8 +1645,8 @@ plot_groesse <- prepare_plot_data(
 plot_box_density(
   plot_groesse,
   farben = c(
-    "Schuh stark dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "KDS" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
   subtitle = "Großes vs. kleines stilistisch abweichendes Produkt"
 )
@@ -1670,7 +1676,7 @@ nrow(inkonsistenz_groesse)
 # Normalverteilung graphisch prüfen
 plot_differenz(
   inkonsistenz_groesse,
-  "Jacke stark dezentral − Schuh stark dezentral"
+  "GDS − KDS"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1717,8 +1723,8 @@ plot_position <- prepare_plot_data(
     "Jacke-stark-zentral"
   ),
   labels = c(
-    "Jacke stark dezentral",
-    "Jacke stark zentral"
+    "GDS",
+    "GZS"
   )
 )
 
@@ -1731,8 +1737,8 @@ inkonsistenz_position <- prepare_paired_data(
 plot_box_density(
   plot_position,
   farben = c(
-    "Jacke stark dezentral" = "#EED5B7",
-    "Jacke stark zentral" = "#CDAA7D"
+    "GDS" = "#EED5B7",
+    "GZS" = "#CDAA7D"
   ),
   subtitle = "Zentrale vs. dezentrale Positionierung"
 )
@@ -1757,7 +1763,7 @@ nrow(inkonsistenz_position)
 # Normalverteilung graphisch prüfen
 plot_differenz(
   inkonsistenz_position,
-  "Jacke stark zentral − Jacke stark dezentral"
+  "GZS − GDS"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1803,8 +1809,8 @@ plot_staerke <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Jacke leicht dezentral",
-    "Jacke stark dezentral"
+    "GDL",
+    "GDS"
   )
 )
 
@@ -1817,8 +1823,8 @@ inkonsistenz_staerke <- prepare_paired_data(
 plot_box_density(
   plot_staerke,
   farben = c(
-    "Jacke leicht dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "GDL" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
   subtitle = "Leichte vs. starke stilistische Abweichung"
 )
@@ -1843,7 +1849,7 @@ nrow(inkonsistenz_staerke)
 # Normalverteilung graphisch prüfen
 plot_differenz(
   inkonsistenz_staerke,
-  "Jacke stark dezentral − Jacke leicht dezentral"
+  "GDS − GDL"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1889,9 +1895,9 @@ inkonsistenz_anova_staerke <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Jacke minimalistisch dezentral",
-    "Jacke leicht dezentral",
-    "Jacke stark dezentral"
+    "M",
+    "GDL",
+    "GDS"
   )
 )
 
@@ -1899,11 +1905,11 @@ inkonsistenz_anova_staerke <- prepare_plot_data(
 plot_box_density(
   inkonsistenz_anova_staerke,
   farben = c(
-    "Jacke minimalistisch dezentral" = "#FFF5E6",
-    "Jacke leicht dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "M" = "#FFF5E6",
+    "GDL" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
-  subtitle = "Baseline vs. leichte vs. starke stilistische Abweichung"
+  subtitle = "M vs. GDL vs. GDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -2005,8 +2011,8 @@ plot_schuh <- prepare_plot_data(
     "Schuh-stark-dezentral"
   ),
   labels = c(
-    "Minimalistischer Schuh",
-    "Starker Hip-Hop-Schuh"
+    "M",
+    "KDS"
   )
 )
 
@@ -2019,10 +2025,10 @@ inkonsistenz_schuh <- prepare_paired_data(
 plot_box_density(
   plot_schuh,
   farben = c(
-    "Minimalistischer Schuh" = "#EED5B7",
-    "Starker Hip-Hop-Schuh" = "#CDAA7D"
+    "M" = "#EED5B7",
+    "KDS" = "#CDAA7D"
   ),
-  subtitle = "Minimalistische Baseline vs. stark abweichender Hip-Hop-Schuh"
+  subtitle = "M vs. KDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -2045,7 +2051,7 @@ nrow(inkonsistenz_schuh)
 # Normalverteilung graphisch prüfen
 plot_differenz(
   inkonsistenz_schuh,
-  "Schuh stark dezentral − Min-Baseline"
+  "KDS − M"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -2195,9 +2201,9 @@ friedman_matrix <- inkonsistenz_anova_staerke %>%
     values_from = Mittelwert_Inkonsistenz
   ) %>%
   dplyr::select(
-    `Jacke minimalistisch dezentral`,
-    `Jacke leicht dezentral`,
-    `Jacke stark dezentral`
+    M,
+    GDL,
+    GDS
   ) %>%
   drop_na() %>%
   as.matrix()
@@ -2403,7 +2409,7 @@ inkonsistenz_position_geschlecht %>%
 # Boxplots
 boxplot_position_dezentral <- erstelle_boxplot_geschlecht(
   inkonsistenz_position_geschlecht, "Position", "dezentral",
-  "Jacke stark dezentral",
+  "GDS",
   manuelle_farben = TRUE,
   titel_zentriert = TRUE
 )
@@ -2412,7 +2418,7 @@ print(boxplot_position_dezentral)
 
 boxplot_position_zentral <- erstelle_boxplot_geschlecht(
   inkonsistenz_position_geschlecht, "Position", "zentral",
-  "Jacke stark zentral",
+  "GZS",
   manuelle_farben = TRUE,
   titel_zentriert = TRUE
 )
@@ -2494,14 +2500,14 @@ inkonsistenz_groesse_geschlecht %>%
 # Boxplots
 boxplot_groesse_klein <- erstelle_boxplot_geschlecht(
   inkonsistenz_groesse_geschlecht, "Groesse", "klein",
-  "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral"
+  "Kleines stilistisch abweichendes Produkt: KDS"
 )
 speichere_grafik(boxplot_groesse_klein, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_groesse_klein)
 
 boxplot_groesse_gross <- erstelle_boxplot_geschlecht(
   inkonsistenz_groesse_geschlecht, "Groesse", "gross",
-  "Großes stilistisch abweichendes Produkt: Jacke stark dezentral"
+  "Großes stilistisch abweichendes Produkt: GDS"
 )
 speichere_grafik(boxplot_groesse_gross, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_groesse_gross)
@@ -2579,14 +2585,14 @@ inkonsistenz_staerke_geschlecht %>%
 # Boxplots
 boxplot_staerke_leicht <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_geschlecht, "Staerke", "leicht",
-  "Leichte stilistische Abweichung: Jacke leicht dezentral"
+  "Leichte stilistische Abweichung: GDL"
 )
 speichere_grafik(boxplot_staerke_leicht, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke_leicht)
 
 boxplot_staerke_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_geschlecht, "Staerke", "stark",
-  "Starke stilistische Abweichung: Jacke stark dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
 speichere_grafik(boxplot_staerke_stark, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke_stark)
@@ -2666,14 +2672,14 @@ inkonsistenz_staerke_schuh_geschlecht %>%
 # Boxplots
 boxplot_staerke_schuh_baseline <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_schuh_geschlecht, "Staerke", "baseline",
-  "Minimalismus-Baseline"
+  "M"
 )
 speichere_grafik(boxplot_staerke_schuh_baseline, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke_schuh_baseline)
 
 boxplot_staerke_schuh_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_schuh_geschlecht, "Staerke", "stark",
-  "Starker stilistisch abweichender Schuh"
+  "KDS"
 )
 speichere_grafik(boxplot_staerke_schuh_stark, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke_schuh_stark)
@@ -2776,21 +2782,21 @@ inkonsistenz_staerke3_geschlecht %>%
 # Boxplots
 boxplot_staerke3_baseline <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "baseline",
-  "Minimalismus-Baseline"
+  "M"
 )
 speichere_grafik(boxplot_staerke3_baseline, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke3_baseline)
 
 boxplot_staerke3_leicht <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "leicht",
-  "Leichte stilistische Abweichung: Jacke leicht dezentral"
+  "Leichte stilistische Abweichung: GDL"
 )
 speichere_grafik(boxplot_staerke3_leicht, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke3_leicht)
 
 boxplot_staerke3_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "stark",
-  "Starke stilistische Abweichung: Jacke stark dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
 speichere_grafik(boxplot_staerke3_stark, "Inkonsistenzbewertung nach Geschlecht")
 print(boxplot_staerke3_stark)
@@ -3055,7 +3061,7 @@ boxplot_position_dezentral_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_position_cvpa,
   "Position",
   "dezentral",
-  "Starke stilistische Abweichung: Jacke dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
 speichere_grafik(boxplot_position_dezentral_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_position_dezentral_cvpa)
@@ -3064,7 +3070,7 @@ boxplot_position_zentral_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_position_cvpa,
   "Position",
   "zentral",
-  "Starke stilistische Abweichung: Jacke zentral"
+  "Starke stilistische Abweichung: GZS"
 )
 speichere_grafik(boxplot_position_zentral_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_position_zentral_cvpa)
@@ -3156,7 +3162,7 @@ boxplot_groesse_klein_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_groesse_cvpa,
   "Groesse",
   "klein",
-  "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral"
+  "Kleines stilistisch abweichendes Produkt: KDS"
 )
 speichere_grafik(boxplot_groesse_klein_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_groesse_klein_cvpa)
@@ -3165,7 +3171,7 @@ boxplot_groesse_gross_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_groesse_cvpa,
   "Groesse",
   "gross",
-  "Großes stilistisch abweichendes Produkt: Jacke stark dezentral"
+  "Großes stilistisch abweichendes Produkt: GDS"
 )
 speichere_grafik(boxplot_groesse_gross_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_groesse_gross_cvpa)
@@ -3318,7 +3324,7 @@ boxplot_staerke_leicht_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_cvpa,
   "Staerke",
   "leicht",
-  "Leichte stilistische Abweichung: Jacke dezentral"
+  "Leichte stilistische Abweichung: GDL"
 )
 speichere_grafik(boxplot_staerke_leicht_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_staerke_leicht_cvpa)
@@ -3327,7 +3333,7 @@ boxplot_staerke_stark_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_cvpa,
   "Staerke",
   "stark",
-  "Starke stilistische Abweichung: Jacke dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
 speichere_grafik(boxplot_staerke_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
 print(boxplot_staerke_stark_cvpa)
@@ -3438,11 +3444,18 @@ zeige_und_speichere_grafik(
         "über Mittelwert" = "#CDAA7D"
       )
     ) +
+    scale_x_discrete(
+      labels = c(
+        "baseline" = "M",
+        "leicht" = "GDL",
+        "stark" = "GDS"
+      )
+    ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
       title = "Inkonsistenzbewertung nach Stärke und CVPA",
-      subtitle = "Baseline, leichte und starke stilistische Abweichung",
-      x = "Stärke der stilistischen Abweichung",
+      subtitle = "M vs. GDL vs. GDS",
+      x = "Outfit",
       y = "Wahrgenommene stilistische Inkonsistenz",
       fill = "CVPA-Gruppe"
     ) +
@@ -3544,7 +3557,7 @@ boxplot_staerke_schuh_baseline_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_schuh_cvpa,
   "Staerke",
   "baseline",
-  "Minimalistische Baseline"
+  "M"
 )
 speichere_grafik(
   boxplot_staerke_schuh_baseline_cvpa,
@@ -3556,7 +3569,7 @@ boxplot_staerke_schuh_stark_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_schuh_cvpa,
   "Staerke",
   "stark",
-  "Stark stilistisch abweichender Schuh: dezentral"
+  "KDS"
 )
 speichere_grafik(
   boxplot_staerke_schuh_stark_cvpa,
@@ -3719,11 +3732,11 @@ print(deskriptiv_ermuedung)
 #### Boxplots ################################################################################################
 
 outfit_namen <- c(
-  "Min-Baseline" = "Baseline",
-  "Jacke-leicht-dezentral" = "Jacke leicht dezentral",
-  "Jacke-stark-dezentral" = "Jacke stark dezentral",
-  "Jacke-stark-zentral" = "Jacke stark zentral",
-  "Schuh-stark-dezentral" = "Schuh stark dezentral"
+  "Min-Baseline" = "M",
+  "Jacke-leicht-dezentral" = "GDL",
+  "Jacke-stark-dezentral" = "GDS",
+  "Jacke-stark-zentral" = "GZS",
+  "Schuh-stark-dezentral" = "KDS"
 )
 
 boxplots_ermuedung <- list()
@@ -3786,7 +3799,10 @@ zeige_und_speichere_grafik(
       alpha = 0.4,
       linewidth = 1
     ) +
-    facet_grid(Condition ~ Reihenfolge) +
+    facet_grid(
+      Condition ~ Reihenfolge,
+      labeller = labeller(Condition = outfit_namen)
+    ) +
     labs(
       title = "Density Plots der Inkonsistenzbewertung",
       subtitle = "Erstes vs. letztes gezeigtes Outfit",
@@ -4255,11 +4271,11 @@ stilzuordnung_long <- salienz_reshaped %>%
         "Min-Baseline"
       ),
       labels = c(
-        "Jacke stark\ndezentral",
-        "Jacke leicht\ndezentral",
-        "Schuh stark\ndezentral",
-        "Jacke stark\nzentral",
-        "Minimalistische\nBaseline"
+        "GDS",
+        "GDL",
+        "KDS",
+        "GZS",
+        "M"
       )
     )
   )
