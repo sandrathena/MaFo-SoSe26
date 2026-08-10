@@ -1594,7 +1594,9 @@ deskriptive_kennwerte <- function(data) {
 }
 
 
-# Normalverteilung graphisch prüfen
+# Grafische Normalverteilungsdarstellung nur zur Beschreibung.
+# WICHTIG: Die Grafiken werden NICHT für die Testwahl berücksichtigt.
+# Die Testwahl erfolgt ausschließlich anhand der p-Werte der formalen Annahmentests.
 plot_differenz <- function(data, subtitle) {
   
   # Density Plot
@@ -1685,7 +1687,7 @@ inkonsistenz_groesse <- inkonsistenz_groesse %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_groesse)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_groesse,
   "Jacke stark dezentral − Schuh stark dezentral"
@@ -1699,6 +1701,7 @@ shapiro_auto_01 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_01, "shapiro_auto_01")
 shapiro_auto_01
+
 
 if (shapiro_auto_01$p.value > 0.05) {
   t_test_groesse <- t.test(
@@ -1779,7 +1782,7 @@ inkonsistenz_position <- inkonsistenz_position %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_position)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_position,
   "Jacke stark zentral − Jacke stark dezentral"
@@ -1793,6 +1796,7 @@ shapiro_auto_02 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_02, "shapiro_auto_02")
 shapiro_auto_02
+
 
 if (shapiro_auto_02$p.value > 0.05) {
   t_test_position <- t.test(
@@ -1873,7 +1877,7 @@ inkonsistenz_staerke <- inkonsistenz_staerke %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_staerke)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_staerke,
   "Jacke stark dezentral − Jacke leicht dezentral"
@@ -1887,6 +1891,7 @@ shapiro_auto_03 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_03, "shapiro_auto_03")
 shapiro_auto_03
+
 
 if (shapiro_auto_03$p.value > 0.05) {
   t_test_staerke <- t.test(
@@ -1968,7 +1973,7 @@ speichere_p_werte(anova_staerke, "anova_staerke")
 # Residuen extrahieren
 residuen_staerke <- residuals(anova_staerke$lm)
 
-# Normalverteilung graphisch prüfen
+
 zeige_und_speichere_grafik(
   ggplot(
     data.frame(Residuen = as.numeric(residuen_staerke)),
@@ -1998,6 +2003,7 @@ zeige_und_speichere_grafik(
 shapiro_auto_04 <- shapiro.test(residuen_staerke)
 speichere_p_werte(shapiro_auto_04, "shapiro_auto_04")
 shapiro_auto_04
+
 
 if (shapiro_auto_04$p.value > 0.05) {
   # Normalverteilung nicht signifikant verletzt -> Repeated-Measures-ANOVA
@@ -2086,7 +2092,7 @@ inkonsistenz_schuh <- inkonsistenz_schuh %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_schuh)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_schuh,
   "Schuh stark dezentral − Min-Baseline"
@@ -2100,6 +2106,7 @@ shapiro_schuh <- shapiro.test(
 )
 speichere_p_werte(shapiro_schuh, "shapiro_schuh")
 shapiro_schuh
+
 
 if (shapiro_schuh$p.value > 0.05) {
   t_test_schuh <- t.test(
@@ -2412,6 +2419,10 @@ density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE
 }
 
 
+# Für alle folgenden Mixed-ANOVA-Blöcke gilt ebenfalls:
+# Density-Plots dienen nur der Beschreibung. Die Entscheidung zwischen klassischem und robustem Test
+# erfolgt ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene (alpha = 0.05).
+
 shapiro_residuen <- function(residuen, name) {
   test <- shapiro.test(as.numeric(residuen))
   speichere_p_werte(test, name)
@@ -2509,6 +2520,7 @@ levene_auto_02 <- levene_stufe(
   inkonsistenz_position_geschlecht, "Position", "zentral", "levene_auto_02"
 )
 levene_auto_02
+
 
 if (shapiro_auto_05$p.value > 0.05 &&
     levene_auto_01$`Pr(>F)`[1] > 0.05 &&
@@ -2609,6 +2621,7 @@ levene_auto_04 <- levene_stufe(
   inkonsistenz_groesse_geschlecht, "Groesse", "gross", "levene_auto_04"
 )
 levene_auto_04
+
 
 if (shapiro_auto_06$p.value > 0.05 &&
     levene_auto_03$`Pr(>F)`[1] > 0.05 &&
@@ -2712,6 +2725,7 @@ levene_auto_06 <- levene_stufe(
 )
 levene_auto_06
 
+
 if (shapiro_auto_07$p.value > 0.05 &&
     levene_auto_05$`Pr(>F)`[1] > 0.05 &&
     levene_auto_06$`Pr(>F)`[1] > 0.05) {
@@ -2813,6 +2827,7 @@ levene_auto_08 <- levene_stufe(
   inkonsistenz_staerke_schuh_geschlecht, "Staerke", "stark", "levene_auto_08"
 )
 levene_auto_08
+
 
 if (shapiro_auto_08$p.value > 0.05 &&
     levene_auto_07$`Pr(>F)`[1] > 0.05 &&
@@ -2955,6 +2970,7 @@ speichere_p_werte(
   "summary_anova_staerke3_geschlecht"
 )
 summary_anova_staerke3_geschlecht
+
 
 if (shapiro_auto_09$p.value > 0.05 &&
     levene_auto_09$`Pr(>F)`[1] > 0.05 &&
@@ -3143,6 +3159,7 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
 }
 
 
+
 shapiro_residuen_cvpa <- function(residuen, objektname) {
   test <- shapiro.test(as.numeric(residuen))
   speichere_p_werte(test, objektname)
@@ -3250,6 +3267,7 @@ levene_auto_13 <- levene_cvpa(
   inkonsistenz_position_cvpa, "Position", "zentral", "levene_auto_13"
 )
 levene_auto_13
+
 
 if (shapiro_auto_10$p.value > 0.05 &&
     levene_auto_12$`Pr(>F)`[1] > 0.05 &&
@@ -3415,6 +3433,7 @@ levene_auto_17 <- levene_cvpa(
 )
 levene_auto_17
 
+
 if (shapiro_auto_12$p.value > 0.05 &&
     levene_auto_16$`Pr(>F)`[1] > 0.05 &&
     levene_auto_17$`Pr(>F)`[1] > 0.05) {
@@ -3538,6 +3557,7 @@ levene_auto_19 <- levene_cvpa(
   inkonsistenz_staerke_cvpa, "Staerke", "stark", "levene_auto_19"
 )
 levene_auto_19
+
 
 if (shapiro_auto_13$p.value > 0.05 &&
     levene_auto_18$`Pr(>F)`[1] > 0.05 &&
@@ -3686,6 +3706,7 @@ speichere_p_werte(
 )
 summary_anova_staerke3_cvpa
 
+
 if (shapiro_auto_14$p.value > 0.05 &&
     levene_auto_20$`Pr(>F)`[1] > 0.05 &&
     levene_auto_21$`Pr(>F)`[1] > 0.05 &&
@@ -3805,6 +3826,7 @@ levene_auto_24 <- levene_cvpa(
   inkonsistenz_staerke_schuh_cvpa, "Staerke", "stark", "levene_auto_24"
 )
 levene_auto_24
+
 
 if (shapiro_auto_15$p.value > 0.05 &&
     levene_auto_23$`Pr(>F)`[1] > 0.05 &&
