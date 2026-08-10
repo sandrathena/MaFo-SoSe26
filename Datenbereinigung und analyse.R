@@ -430,7 +430,7 @@ table(salienz$Antwortzeit_auffaellig)
 # Betrachten der Verteilung der mit Relative Speed Index > 2.0
 zeige_und_speichere_grafik(
   salienz %>%
-    filter(Relative_Speed_Index > 2) %>%
+    filter(Relative_Speed_Index > 2.0) %>%
     ggplot(aes(x = Relative_Speed_Index, y = reorder(as.factor(number), Relative_Speed_Index))) +
     geom_point(size = 3) +
     geom_vline(xintercept = 2, linetype = "dashed", linewidth = 0.8) +
@@ -476,7 +476,7 @@ zeige_und_speichere_grafik(
       breaks = scales::pretty_breaks(n = 10),
       expand = expansion(mult = c(0, 0.05))) +
     labs(
-      title = "Auffällige Gesamtbearbeitungszeiten",
+      title = "Auffällige Bearbeitungszeiten nach dem Relative Speed Index",
       x = "Gesamtbearbeitungszeit der Umfrage [in Minuten]",
       y = "Anzahl der Teilnehmenden [pro 2-Minuten-Intervall]",
       fill = "Legende") +
@@ -1608,37 +1608,6 @@ plot_differenz <- function(data, subtitle) {
     paste0("Density_Differenzwerte_", subtitle)
   )
   print(density_plot)
-  
-  # QQ-Plot
-  qq_plot <- ggplot(
-    data,
-    aes(sample = Differenz_Inkonsistenz)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Differenzwerte",
-      subtitle = subtitle,
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    )
-  
-  speichere_grafik(
-    qq_plot,
-    paste0("QQ_Differenzwerte_", subtitle)
-  )
-  print(qq_plot)
-  
-  invisible(list(
-    Density = density_plot,
-    QQ = qq_plot
-  ))
 }
 
 
@@ -1987,27 +1956,6 @@ shapiro_auto_04 <- shapiro.test(residuen_staerke)
 speichere_p_werte(shapiro_auto_04, "shapiro_auto_04")
 shapiro_auto_04
 
-# Normalverteilung graphisch prüfen: QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_staerke)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Repeated-Measures-ANOVA: Stärke",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen - Stärke"
-)
 
 # p < 0.05 -> H0 verwerfen -> Friedman-Test
 
@@ -2415,33 +2363,6 @@ density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE
   p
 }
 
-qq_residuen <- function(residuen, subtitle,
-                        titel = "QQ-Plot der Residuen",
-                        zentriert = TRUE) {
-  p <- ggplot(
-    data.frame(Residuen = as.numeric(residuen)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = titel,
-      subtitle = subtitle,
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal()
-  
-  if (zentriert) {
-    p <- p + theme(
-      legend.position = "none",
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    )
-  }
-  
-  p
-}
 
 shapiro_residuen <- function(residuen, name) {
   test <- shapiro.test(as.numeric(residuen))
@@ -2529,15 +2450,6 @@ shapiro_auto_05 <- shapiro_residuen(
 )
 shapiro_auto_05
 
-zeige_und_speichere_grafik(
-  qq_residuen(
-    residuen_position_geschlecht,
-    "Factorial Mixed ANOVA: Position × Geschlecht",
-    titel = "Normalverteilung der Residuen",
-    zentriert = TRUE
-  ),
-  "Normalverteilung der Residuen"
-)
 
 # Varianzhomogenität
 levene_auto_01 <- levene_stufe(
@@ -2623,13 +2535,6 @@ shapiro_auto_06 <- shapiro_residuen(
 )
 shapiro_auto_06
 
-zeige_und_speichere_grafik(
-  qq_residuen(
-    residuen_groesse_geschlecht,
-    "Factorial Mixed ANOVA: Größe × Geschlecht"
-  ),
-  "QQ-Plot der Residuen"
-)
 
 # Varianzhomogenität
 levene_auto_03 <- levene_stufe(
@@ -2717,13 +2622,6 @@ shapiro_auto_07 <- shapiro_residuen(
 )
 shapiro_auto_07
 
-zeige_und_speichere_grafik(
-  qq_residuen(
-    residuen_staerke_geschlecht,
-    "Factorial Mixed ANOVA: Stärke × Geschlecht"
-  ),
-  "QQ-Plot der Residuen"
-)
 
 # Varianzhomogenität
 levene_auto_05 <- levene_stufe(
@@ -2811,13 +2709,6 @@ shapiro_auto_08 <- shapiro_residuen(
 )
 shapiro_auto_08
 
-zeige_und_speichere_grafik(
-  qq_residuen(
-    residuen_staerke_schuh_geschlecht,
-    "Factorial Mixed ANOVA: Schuh-Stärke × Geschlecht"
-  ),
-  "QQ-Plot der Residuen"
-)
 
 # Varianzhomogenität
 levene_auto_07 <- levene_stufe(
@@ -2933,13 +2824,6 @@ shapiro_auto_09 <- shapiro_residuen(
 )
 shapiro_auto_09
 
-zeige_und_speichere_grafik(
-  qq_residuen(
-    residuen_staerke3_geschlecht,
-    "Factorial Mixed ANOVA: Stärke × Geschlecht"
-  ),
-  "QQ-Plot der Residuen"
-)
 
 # Varianzhomogenität für alle drei Stufen
 levene_auto_09 <- levene_stufe(
@@ -3133,26 +3017,6 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
     "Density Plot der Residuen"
   )
   
-  zeige_und_speichere_grafik(
-    ggplot(
-      data.frame(Residuen = as.numeric(residuen)),
-      aes(sample = Residuen)
-    ) +
-      stat_qq() +
-      stat_qq_line() +
-      labs(
-        title = "QQ-Plot der Residuen",
-        subtitle = subtitle,
-        x = "Theoretische Quantile",
-        y = "Beobachtete Quantile"
-      ) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5)
-      ),
-    "QQ-Plot der Residuen"
-  )
 }
 
 shapiro_residuen_cvpa <- function(residuen, objektname) {
@@ -3252,27 +3116,6 @@ shapiro_auto_10 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_10
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_position_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Position × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_12 <- levene_cvpa(
   inkonsistenz_position_cvpa, "Position", "dezentral", "levene_auto_12"
@@ -3373,27 +3216,6 @@ shapiro_auto_11 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_11
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_14 <- levene_cvpa(
   inkonsistenz_groesse_cvpa, "Groesse", "klein", "levene_auto_14"
@@ -3445,27 +3267,6 @@ shapiro_auto_12 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_12
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_groesse_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_16 <- levene_cvpa(
   inkonsistenz_groesse_cvpa, "Groesse", "klein", "levene_auto_16"
@@ -3576,27 +3377,6 @@ shapiro_auto_13 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_13
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_staerke_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_18 <- levene_cvpa(
   inkonsistenz_staerke_cvpa, "Staerke", "leicht", "levene_auto_18"
@@ -3715,27 +3495,6 @@ shapiro_auto_14 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_14
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_staerke3_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_20 <- levene_cvpa(
   inkonsistenz_staerke3_cvpa, "Staerke", "baseline", "levene_auto_20"
@@ -3850,27 +3609,6 @@ shapiro_auto_15 <- shapiro_residuen_cvpa(
 )
 shapiro_auto_15
 
-# QQ-Plot
-zeige_und_speichere_grafik(
-  ggplot(
-    data.frame(Residuen = as.numeric(residuen_staerke_schuh_cvpa)),
-    aes(sample = Residuen)
-  ) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(
-      title = "QQ-Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke Schuh × CVPA",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plot der Residuen"
-)
 
 levene_auto_23 <- levene_cvpa(
   inkonsistenz_staerke_schuh_cvpa, "Staerke", "baseline", "levene_auto_23"
@@ -4063,25 +3801,6 @@ zeige_und_speichere_grafik(
   "Density Plots der Inkonsistenzbewertung"
 )
 
-# Normalverteilung grafisch prüfen: QQ-Plots
-zeige_und_speichere_grafik(
-  ggplot(ermuedung_plot, aes(sample = Mittelwert_Inkonsistenz)) +
-    stat_qq() +
-    stat_qq_line() +
-    facet_grid(Condition ~ Reihenfolge) +
-    labs(
-      title = "QQ-Plots der Inkonsistenzbewertung",
-      subtitle = "Erstes vs. letztes gezeigtes Outfit",
-      x = "Theoretische Quantile",
-      y = "Beobachtete Quantile"
-    ) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
-    ),
-  "QQ-Plots der Inkonsistenzbewertung"
-)
 
 
 #### Levene-Test ############################################################################################
@@ -4148,28 +3867,6 @@ for (outfit in conditions) {
     paste0("Density_Normalverteilung_Ermuedung_", outfit)
   )
   
-  # Normalverteilung grafisch prüfen: QQ-Plot
-  zeige_und_speichere_grafik(
-    ggplot(
-      daten_outfit,
-      aes(sample = Mittelwert_Inkonsistenz)
-    ) +
-      stat_qq() +
-      stat_qq_line() +
-      facet_wrap(~ Reihenfolge) +
-      labs(
-        title = paste("QQ-Plot:", outfit_namen[outfit]),
-        subtitle = "Als erstes vs. als letztes gezeigt",
-        x = "Theoretische Quantile",
-        y = "Beobachtete Quantile"
-      ) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5)
-      ),
-    paste0("QQ_Normalverteilung_Ermuedung_", outfit)
-  )
   
   # Varianzhomogenität prüfen
   levene_result <- car::leveneTest(
@@ -4299,8 +3996,6 @@ plot(
 # 2. Normalverteilung der Residuen
 residuen_groesse <- residuals(model_groesse)
 shapiro.test(residuen_groesse)
-qqnorm(residuen_groesse)
-qqline(residuen_groesse)
 
 # 3. Homoskedastizität der Residuen
 plot(
@@ -4380,8 +4075,6 @@ plot(
 # 2. Normalverteilung der Residuen
 residuen_staerke <- residuals(model_staerke)
 shapiro.test(residuen_staerke)
-qqnorm(residuen_staerke)
-qqline(residuen_staerke)
 
 # 3. Homoskedastizität der Residuen
 plot(
@@ -4460,8 +4153,6 @@ plot(
 # 2. Normalverteilung der Residuen
 residuen_position <- residuals(model_position)
 shapiro.test(residuen_position)
-qqnorm(residuen_position)
-qqline(residuen_position)
 
 # 3. Homoskedastizität der Residuen
 plot(
