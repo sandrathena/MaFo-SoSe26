@@ -1275,6 +1275,22 @@ extrahiere_p_werte <- function(objekt, objektname, bestandteil = "", tiefe = 0) 
     )
   }
   
+  # Einzelne numerische p-Werte in Listenobjekten, z. B. WRS2::bwtrim
+  if (is.numeric(objekt) &&
+      length(objekt) == 1 &&
+      grepl("p[._ -]*value|p[._ -]*val|pwert|p_wert", bestandteil, ignore.case = TRUE)) {
+    return(
+      data.frame(
+        Objekt = objektname,
+        Bestandteil = bestandteil,
+        Zeile = "",
+        p_Typ = "p.value",
+        p_Wert = as.numeric(objekt),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  
   # afex-ANOVA
   if (inherits(objekt, "afex_aov")) {
     return(
@@ -1353,7 +1369,9 @@ extrahiere_p_werte <- function(objekt, objektname, bestandteil = "", tiefe = 0) 
   }
   
   # Zusammenfassungsobjekte, insbesondere für Sphärizitäts-/Mauchly-Ausgaben
-  if (is.list(objekt) && grepl("summary|Anova", paste(class(objekt), collapse = " "), ignore.case = TRUE)) {
+  if (is.list(objekt) &&
+      (inherits(objekt, "bwtrim") ||
+       grepl("summary|Anova", paste(class(objekt), collapse = " "), ignore.case = TRUE))) {
     teile <- names(objekt)
     if (is.null(teile)) {
       teile <- as.character(seq_along(objekt))
@@ -1576,7 +1594,9 @@ deskriptive_kennwerte <- function(data) {
 }
 
 
-# Normalverteilung graphisch prüfen
+# Grafische Normalverteilungsdarstellung nur zur Beschreibung.
+# WICHTIG: Die Grafiken werden NICHT für die Testwahl berücksichtigt.
+# Die Testwahl erfolgt ausschließlich anhand der p-Werte der formalen Annahmentests.
 plot_differenz <- function(data, subtitle) {
   
   # Density Plot
@@ -1667,7 +1687,7 @@ inkonsistenz_groesse <- inkonsistenz_groesse %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_groesse)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_groesse,
   "Jacke stark dezentral − Schuh stark dezentral"
@@ -1681,20 +1701,28 @@ shapiro_auto_01 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_01, "shapiro_auto_01")
 shapiro_auto_01
-# p > 0.05 -> H0 nicht verwerfen also keine statistisch signifikante Abweichung von der Normalverteilung
 
-# Normalverteilungsannahme ist erfüllt, gepaarter t-Test ist okkk!
-t_test_groesse <- t.test(
-  inkonsistenz_groesse$`Jacke-stark-dezentral`,
-  inkonsistenz_groesse$`Schuh-stark-dezentral`,
-  paired = TRUE,
-  alternative = "greater"
-)
-speichere_p_werte(t_test_groesse, "t_test_groesse")
-t_test_groesse
-
-# p < 0.05 -> H0 verwerfen:
-# physisch groß wird statistsich signifikant inkonsistenter wahrgenommen
+# Testwahl ausschließlich anhand des Shapiro-Wilk-p-Werts
+if (shapiro_auto_01$p.value > 0.05) {
+  t_test_groesse <- t.test(
+    inkonsistenz_groesse$`Jacke-stark-dezentral`,
+    inkonsistenz_groesse$`Schuh-stark-dezentral`,
+    paired = TRUE,
+    alternative = "greater"
+  )
+  speichere_p_werte(t_test_groesse, "t_test_groesse")
+  t_test_groesse
+} else {
+  wilcoxon_groesse <- wilcox.test(
+    inkonsistenz_groesse$`Jacke-stark-dezentral`,
+    inkonsistenz_groesse$`Schuh-stark-dezentral`,
+    paired = TRUE,
+    alternative = "greater",
+    exact = FALSE
+  )
+  speichere_p_werte(wilcoxon_groesse, "wilcoxon_groesse")
+  wilcoxon_groesse
+}
 
 
 
@@ -1754,7 +1782,7 @@ inkonsistenz_position <- inkonsistenz_position %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_position)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_position,
   "Jacke stark zentral − Jacke stark dezentral"
@@ -1768,19 +1796,28 @@ shapiro_auto_02 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_02, "shapiro_auto_02")
 shapiro_auto_02
-# p < 0.05 -> H0 verwerfen also kann man nicht sagen,
-# dass keine statistisch signifikante Abweichung von der Normalverteilung vorliegt
 
-# -> Wilcoxon-Vorzeichen-Rang-Test durchgeführt
-wilcoxon_position <- wilcox.test(
-  inkonsistenz_position$`Jacke-stark-zentral`,
-  inkonsistenz_position$`Jacke-stark-dezentral`,
-  paired = TRUE,
-  alternative = "greater",
-  exact = FALSE
-)
-speichere_p_werte(wilcoxon_position, "wilcoxon_position")
-wilcoxon_position
+# Testwahl ausschließlich anhand des Shapiro-Wilk-p-Werts
+if (shapiro_auto_02$p.value > 0.05) {
+  t_test_position <- t.test(
+    inkonsistenz_position$`Jacke-stark-zentral`,
+    inkonsistenz_position$`Jacke-stark-dezentral`,
+    paired = TRUE,
+    alternative = "greater"
+  )
+  speichere_p_werte(t_test_position, "t_test_position")
+  t_test_position
+} else {
+  wilcoxon_position <- wilcox.test(
+    inkonsistenz_position$`Jacke-stark-zentral`,
+    inkonsistenz_position$`Jacke-stark-dezentral`,
+    paired = TRUE,
+    alternative = "greater",
+    exact = FALSE
+  )
+  speichere_p_werte(wilcoxon_position, "wilcoxon_position")
+  wilcoxon_position
+}
 
 
 
@@ -1840,7 +1877,7 @@ inkonsistenz_staerke <- inkonsistenz_staerke %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_staerke)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_staerke,
   "Jacke stark dezentral − Jacke leicht dezentral"
@@ -1854,17 +1891,28 @@ shapiro_auto_03 <- shapiro.test(
 )
 speichere_p_werte(shapiro_auto_03, "shapiro_auto_03")
 shapiro_auto_03
-# p > 0.05 -> H0 nicht verwerfen also keine statistisch signifikante Abweichung von der Normalverteilung
 
-# Normalverteilungsannahme ist erfüllt, gepaarter t-Test ok!
-t_test_staerke <- t.test(
-  inkonsistenz_staerke$`Jacke-stark-dezentral`,
-  inkonsistenz_staerke$`Jacke-leicht-dezentral`,
-  paired = TRUE,
-  alternative = "greater"
-)
-speichere_p_werte(t_test_staerke, "t_test_staerke")
-t_test_staerke
+# Testwahl ausschließlich anhand des Shapiro-Wilk-p-Werts
+if (shapiro_auto_03$p.value > 0.05) {
+  t_test_staerke <- t.test(
+    inkonsistenz_staerke$`Jacke-stark-dezentral`,
+    inkonsistenz_staerke$`Jacke-leicht-dezentral`,
+    paired = TRUE,
+    alternative = "greater"
+  )
+  speichere_p_werte(t_test_staerke, "t_test_staerke")
+  t_test_staerke
+} else {
+  wilcoxon_staerke <- wilcox.test(
+    inkonsistenz_staerke$`Jacke-stark-dezentral`,
+    inkonsistenz_staerke$`Jacke-leicht-dezentral`,
+    paired = TRUE,
+    alternative = "greater",
+    exact = FALSE
+  )
+  speichere_p_werte(wilcoxon_staerke, "wilcoxon_staerke")
+  wilcoxon_staerke
+}
 
 
 
@@ -1925,7 +1973,7 @@ speichere_p_werte(anova_staerke, "anova_staerke")
 # Residuen extrahieren
 residuen_staerke <- residuals(anova_staerke$lm)
 
-# Normalverteilung graphisch prüfen: Density Plot
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl): Density Plot
 zeige_und_speichere_grafik(
   ggplot(
     data.frame(Residuen = as.numeric(residuen_staerke)),
@@ -1956,33 +2004,35 @@ shapiro_auto_04 <- shapiro.test(residuen_staerke)
 speichere_p_werte(shapiro_auto_04, "shapiro_auto_04")
 shapiro_auto_04
 
-
-# p < 0.05 -> H0 verwerfen -> Friedman-Test
-
-# Friedman-Test
-friedman_staerke <- friedman.test(
-  Mittelwert_Inkonsistenz ~ Condition | number,
-  data = inkonsistenz_anova_staerke
-)
-speichere_p_werte(friedman_staerke, "friedman_staerke")
-friedman_staerke
-
-# H0: Inkonsistenz unterscheidet sich zwischen den dreien nicht
-# p < 0.05 H0 verwerfen
-
-# Um festzustellen, zwischen welchen Bedingungen Unterschiede bestehen,
-# werden paarweise Wilcoxon-Vorzeichen-Rang-Tests durchgeführt mit Holm Korrektur
-paarweise_staerke <- inkonsistenz_anova_staerke %>%
-  pairwise_wilcox_test(
-    Mittelwert_Inkonsistenz ~ Condition,
-    paired = TRUE,
-    p.adjust.method = "holm"
+# Testwahl ausschließlich anhand des Shapiro-Wilk-p-Werts
+if (shapiro_auto_04$p.value > 0.05) {
+  # Normalverteilung nicht signifikant verletzt -> Repeated-Measures-ANOVA
+  anova_staerke
+  paarweise_staerke <- pairs(
+    emmeans(anova_staerke, ~ Condition),
+    adjust = "holm"
   )
-paarweise_staerke
-speichere_p_werte(paarweise_staerke, "paarweise_staerke")
-
-# keine Abweichung -> leichte Abweichung -> starke Abweichung
-# führt zu einer zunehmend höheren wahrgenommenen stilistischen Inkonsistenz.
+  paarweise_staerke
+  speichere_p_werte(as.data.frame(paarweise_staerke), "paarweise_staerke")
+} else {
+  # Signifikante Abweichung von der Normalverteilung -> Friedman-Test
+  friedman_staerke <- friedman.test(
+    Mittelwert_Inkonsistenz ~ Condition | number,
+    data = inkonsistenz_anova_staerke
+  )
+  speichere_p_werte(friedman_staerke, "friedman_staerke")
+  friedman_staerke
+  
+  # Paarweise Wilcoxon-Vorzeichen-Rang-Tests mit Holm-Korrektur
+  paarweise_staerke <- inkonsistenz_anova_staerke %>%
+    pairwise_wilcox_test(
+      Mittelwert_Inkonsistenz ~ Condition,
+      paired = TRUE,
+      p.adjust.method = "holm"
+    )
+  paarweise_staerke
+  speichere_p_werte(paarweise_staerke, "paarweise_staerke")
+}
 
 
 
@@ -2042,7 +2092,7 @@ inkonsistenz_schuh <- inkonsistenz_schuh %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_schuh)
 
-# Normalverteilung graphisch prüfen
+# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_schuh,
   "Schuh stark dezentral − Min-Baseline"
@@ -2057,22 +2107,27 @@ shapiro_schuh <- shapiro.test(
 speichere_p_werte(shapiro_schuh, "shapiro_schuh")
 shapiro_schuh
 
-# p < 0.05 -> H0 verwerfen:
-# statistisch signifikante Abweichung von der Normalverteilung
-
-# -> Wilcoxon-Vorzeichen-Rang-Test
-wilcoxon_schuh <- wilcox.test(
-  inkonsistenz_schuh$`Schuh-stark-dezentral`,
-  inkonsistenz_schuh$`Min-Baseline`,
-  paired = TRUE,
-  alternative = "greater",
-  exact = FALSE
-)
-speichere_p_werte(wilcoxon_schuh, "wilcoxon_schuh")
-wilcoxon_schuh
-# p < 0.05
-# Damit wird H₀ verworfen. Der stark stilistisch abweichende Hip-Hop-Schuh wird
-# signifikant inkonsistenter wahrgenommen als der minimalistische Baseline-Schuh
+# Testwahl ausschließlich anhand des Shapiro-Wilk-p-Werts
+if (shapiro_schuh$p.value > 0.05) {
+  t_test_schuh <- t.test(
+    inkonsistenz_schuh$`Schuh-stark-dezentral`,
+    inkonsistenz_schuh$`Min-Baseline`,
+    paired = TRUE,
+    alternative = "greater"
+  )
+  speichere_p_werte(t_test_schuh, "t_test_schuh")
+  t_test_schuh
+} else {
+  wilcoxon_schuh <- wilcox.test(
+    inkonsistenz_schuh$`Schuh-stark-dezentral`,
+    inkonsistenz_schuh$`Min-Baseline`,
+    paired = TRUE,
+    alternative = "greater",
+    exact = FALSE
+  )
+  speichere_p_werte(wilcoxon_schuh, "wilcoxon_schuh")
+  wilcoxon_schuh
+}
 
 
 
@@ -2364,6 +2419,10 @@ density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE
 }
 
 
+# Für alle folgenden Mixed-ANOVA-Blöcke gilt ebenfalls:
+# Density-Plots dienen nur der Beschreibung. Die Entscheidung zwischen klassischem und robustem Test
+# erfolgt ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene (alpha = 0.05).
+
 shapiro_residuen <- function(residuen, name) {
   test <- shapiro.test(as.numeric(residuen))
   speichere_p_werte(test, name)
@@ -2462,13 +2521,29 @@ levene_auto_02 <- levene_stufe(
 )
 levene_auto_02
 
-# Mixed ANOVA berechnen
-anova_position_geschlecht <- schaetze_mixed_anova(
-  inkonsistenz_position_geschlecht,
-  "Position",
-  "anova_position_geschlecht"
-)
-anova_position_geschlecht
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_05$p.value > 0.05 &&
+    levene_auto_01$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_02$`Pr(>F)`[1] > 0.05) {
+  anova_position_geschlecht <- schaetze_mixed_anova(
+    inkonsistenz_position_geschlecht,
+    "Position",
+    "anova_position_geschlecht"
+  )
+  anova_position_geschlecht
+} else {
+  robust_anova_position_geschlecht <- bwtrim(
+    Mittelwert_Inkonsistenz ~ Geschlecht * Position,
+    id = number,
+    data = inkonsistenz_position_geschlecht,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_position_geschlecht,
+    "robust_anova_position_geschlecht"
+  )
+  robust_anova_position_geschlecht
+}
 
 
 #############################################################################################################
@@ -2547,13 +2622,29 @@ levene_auto_04 <- levene_stufe(
 )
 levene_auto_04
 
-# Mixed ANOVA berechnen
-anova_groesse_geschlecht <- schaetze_mixed_anova(
-  inkonsistenz_groesse_geschlecht,
-  "Groesse",
-  "anova_groesse_geschlecht"
-)
-anova_groesse_geschlecht
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_06$p.value > 0.05 &&
+    levene_auto_03$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_04$`Pr(>F)`[1] > 0.05) {
+  anova_groesse_geschlecht <- schaetze_mixed_anova(
+    inkonsistenz_groesse_geschlecht,
+    "Groesse",
+    "anova_groesse_geschlecht"
+  )
+  anova_groesse_geschlecht
+} else {
+  robust_anova_groesse_geschlecht <- bwtrim(
+    Mittelwert_Inkonsistenz ~ Geschlecht * Groesse,
+    id = number,
+    data = inkonsistenz_groesse_geschlecht,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_groesse_geschlecht,
+    "robust_anova_groesse_geschlecht"
+  )
+  robust_anova_groesse_geschlecht
+}
 
 
 #############################################################################################################
@@ -2634,13 +2725,29 @@ levene_auto_06 <- levene_stufe(
 )
 levene_auto_06
 
-# Mixed ANOVA berechnen
-anova_staerke_geschlecht <- schaetze_mixed_anova(
-  inkonsistenz_staerke_geschlecht,
-  "Staerke",
-  "anova_staerke_geschlecht"
-)
-anova_staerke_geschlecht
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_07$p.value > 0.05 &&
+    levene_auto_05$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_06$`Pr(>F)`[1] > 0.05) {
+  anova_staerke_geschlecht <- schaetze_mixed_anova(
+    inkonsistenz_staerke_geschlecht,
+    "Staerke",
+    "anova_staerke_geschlecht"
+  )
+  anova_staerke_geschlecht
+} else {
+  robust_anova_staerke_geschlecht <- bwtrim(
+    Mittelwert_Inkonsistenz ~ Geschlecht * Staerke,
+    id = number,
+    data = inkonsistenz_staerke_geschlecht,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke_geschlecht,
+    "robust_anova_staerke_geschlecht"
+  )
+  robust_anova_staerke_geschlecht
+}
 
 
 #############################################################################################################
@@ -2721,31 +2828,46 @@ levene_auto_08 <- levene_stufe(
 )
 levene_auto_08
 
-# Robuste deskriptive Kennwerte: bwtrim() verwendet 20 % getrimmte Mittelwerte
-deskriptiv_staerke_schuh_robust <- inkonsistenz_staerke_schuh_geschlecht %>%
-  group_by(Geschlecht, Staerke) %>%
-  summarise(
-    n = n(),
-    Getrimmter_Mittelwert = mean(
-      Mittelwert_Inkonsistenz,
-      trim = 0.20,
-      na.rm = TRUE
-    ),
-    Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
-    IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
-    .groups = "drop"
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_08$p.value > 0.05 &&
+    levene_auto_07$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_08$`Pr(>F)`[1] > 0.05) {
+  anova_staerke_schuh_geschlecht <- schaetze_mixed_anova(
+    inkonsistenz_staerke_schuh_geschlecht,
+    "Staerke",
+    "anova_staerke_schuh_geschlecht"
   )
-
-deskriptiv_staerke_schuh_robust
-
-# Robuste Factorial Mixed ANOVA
-robust_anova_staerke_schuh_geschlecht <- bwtrim(
-  Mittelwert_Inkonsistenz ~ Geschlecht * Staerke,
-  id = number,
-  data = inkonsistenz_staerke_schuh_geschlecht,
-  tr = 0.20
-)
-robust_anova_staerke_schuh_geschlecht
+  anova_staerke_schuh_geschlecht
+} else {
+  # Robuste deskriptive Kennwerte: bwtrim() verwendet 20 % getrimmte Mittelwerte
+  deskriptiv_staerke_schuh_robust <- inkonsistenz_staerke_schuh_geschlecht %>%
+    group_by(Geschlecht, Staerke) %>%
+    summarise(
+      n = n(),
+      Getrimmter_Mittelwert = mean(
+        Mittelwert_Inkonsistenz,
+        trim = 0.20,
+        na.rm = TRUE
+      ),
+      Median = median(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      IQR = IQR(Mittelwert_Inkonsistenz, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  deskriptiv_staerke_schuh_robust
+  
+  robust_anova_staerke_schuh_geschlecht <- bwtrim(
+    Mittelwert_Inkonsistenz ~ Geschlecht * Staerke,
+    id = number,
+    data = inkonsistenz_staerke_schuh_geschlecht,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke_schuh_geschlecht,
+    "robust_anova_staerke_schuh_geschlecht"
+  )
+  robust_anova_staerke_schuh_geschlecht
+}
 
 
 #############################################################################################################
@@ -2849,13 +2971,30 @@ speichere_p_werte(
 )
 summary_anova_staerke3_geschlecht
 
-# ANOVA erneut berechnen und ausgeben
-anova_staerke3_geschlecht <- schaetze_mixed_anova(
-  inkonsistenz_staerke3_geschlecht,
-  "Staerke",
-  "anova_staerke3_geschlecht"
-)
-anova_staerke3_geschlecht
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_09$p.value > 0.05 &&
+    levene_auto_09$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_10$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_11$`Pr(>F)`[1] > 0.05) {
+  anova_staerke3_geschlecht <- schaetze_mixed_anova(
+    inkonsistenz_staerke3_geschlecht,
+    "Staerke",
+    "anova_staerke3_geschlecht"
+  )
+  anova_staerke3_geschlecht
+} else {
+  robust_anova_staerke3_geschlecht <- bwtrim(
+    Mittelwert_Inkonsistenz ~ Geschlecht * Staerke,
+    id = number,
+    data = inkonsistenz_staerke3_geschlecht,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke3_geschlecht,
+    "robust_anova_staerke3_geschlecht"
+  )
+  robust_anova_staerke3_geschlecht
+}
 
 
 
@@ -3019,6 +3158,9 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
   
 }
 
+# Auch bei den CVPA-Analysen dienen Density-Plots nur der Beschreibung.
+# Die Testwahl erfolgt ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene (alpha = 0.05).
+
 shapiro_residuen_cvpa <- function(residuen, objektname) {
   test <- shapiro.test(as.numeric(residuen))
   speichere_p_werte(test, objektname)
@@ -3127,13 +3269,29 @@ levene_auto_13 <- levene_cvpa(
 )
 levene_auto_13
 
-# 2 × 2 Factorial Mixed ANOVA
-anova_position_cvpa <- schaetze_cvpa_anova(
-  inkonsistenz_position_cvpa,
-  "Position",
-  "anova_position_cvpa"
-)
-anova_position_cvpa
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_10$p.value > 0.05 &&
+    levene_auto_12$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_13$`Pr(>F)`[1] > 0.05) {
+  anova_position_cvpa <- schaetze_cvpa_anova(
+    inkonsistenz_position_cvpa,
+    "Position",
+    "anova_position_cvpa"
+  )
+  anova_position_cvpa
+} else {
+  robust_anova_position_cvpa <- bwtrim(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Position,
+    id = number,
+    data = inkonsistenz_position_cvpa,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_position_cvpa,
+    "robust_anova_position_cvpa"
+  )
+  robust_anova_position_cvpa
+}
 
 
 #############################################################################################################
@@ -3278,20 +3436,35 @@ levene_auto_17 <- levene_cvpa(
 )
 levene_auto_17
 
-# Robuste deskriptive Kennwerte und robuste 2 × 2 Mixed ANOVA
-deskriptiv_groesse_cvpa_robust <- deskriptiv_cvpa_robust(
-  inkonsistenz_groesse_cvpa,
-  "Groesse"
-)
-deskriptiv_groesse_cvpa_robust
-
-robust_anova_groesse_cvpa <- bwtrim(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Groesse,
-  id = number,
-  data = inkonsistenz_groesse_cvpa,
-  tr = 0.20
-)
-robust_anova_groesse_cvpa
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_12$p.value > 0.05 &&
+    levene_auto_16$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_17$`Pr(>F)`[1] > 0.05) {
+  anova_groesse_cvpa <- schaetze_cvpa_anova(
+    inkonsistenz_groesse_cvpa,
+    "Groesse",
+    "anova_groesse_cvpa"
+  )
+  anova_groesse_cvpa
+} else {
+  deskriptiv_groesse_cvpa_robust <- deskriptiv_cvpa_robust(
+    inkonsistenz_groesse_cvpa,
+    "Groesse"
+  )
+  deskriptiv_groesse_cvpa_robust
+  
+  robust_anova_groesse_cvpa <- bwtrim(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Groesse,
+    id = number,
+    data = inkonsistenz_groesse_cvpa,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_groesse_cvpa,
+    "robust_anova_groesse_cvpa"
+  )
+  robust_anova_groesse_cvpa
+}
 
 
 #############################################################################################################
@@ -3388,12 +3561,29 @@ levene_auto_19 <- levene_cvpa(
 )
 levene_auto_19
 
-anova_staerke_cvpa <- schaetze_cvpa_anova(
-  inkonsistenz_staerke_cvpa,
-  "Staerke",
-  "anova_staerke_cvpa"
-)
-anova_staerke_cvpa
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_13$p.value > 0.05 &&
+    levene_auto_18$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_19$`Pr(>F)`[1] > 0.05) {
+  anova_staerke_cvpa <- schaetze_cvpa_anova(
+    inkonsistenz_staerke_cvpa,
+    "Staerke",
+    "anova_staerke_cvpa"
+  )
+  anova_staerke_cvpa
+} else {
+  robust_anova_staerke_cvpa <- bwtrim(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
+    id = number,
+    data = inkonsistenz_staerke_cvpa,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke_cvpa,
+    "robust_anova_staerke_cvpa"
+  )
+  robust_anova_staerke_cvpa
+}
 
 
 #############################################################################################################
@@ -3519,6 +3709,26 @@ speichere_p_werte(
 )
 summary_anova_staerke3_cvpa
 
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_14$p.value > 0.05 &&
+    levene_auto_20$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_21$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_22$`Pr(>F)`[1] > 0.05) {
+  anova_staerke3_cvpa
+} else {
+  robust_anova_staerke3_cvpa <- bwtrim(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
+    id = number,
+    data = inkonsistenz_staerke3_cvpa,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke3_cvpa,
+    "robust_anova_staerke3_cvpa"
+  )
+  robust_anova_staerke3_cvpa
+}
+
 
 #############################################################################################################
 #### 5. Stärke Schuh × CVPA ##################################################################################
@@ -3620,21 +3830,35 @@ levene_auto_24 <- levene_cvpa(
 )
 levene_auto_24
 
-deskriptiv_staerke_schuh_cvpa_robust <- deskriptiv_cvpa_robust(
-  inkonsistenz_staerke_schuh_cvpa,
-  "Staerke"
-)
-deskriptiv_staerke_schuh_cvpa_robust
-
-library(WRS2)
-
-robust_anova_staerke_schuh_cvpa <- bwtrim(
-  Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
-  id = number,
-  data = inkonsistenz_staerke_schuh_cvpa,
-  tr = 0.20
-)
-robust_anova_staerke_schuh_cvpa
+# Testwahl ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene
+if (shapiro_auto_15$p.value > 0.05 &&
+    levene_auto_23$`Pr(>F)`[1] > 0.05 &&
+    levene_auto_24$`Pr(>F)`[1] > 0.05) {
+  anova_staerke_schuh_cvpa <- schaetze_cvpa_anova(
+    inkonsistenz_staerke_schuh_cvpa,
+    "Staerke",
+    "anova_staerke_schuh_cvpa"
+  )
+  anova_staerke_schuh_cvpa
+} else {
+  deskriptiv_staerke_schuh_cvpa_robust <- deskriptiv_cvpa_robust(
+    inkonsistenz_staerke_schuh_cvpa,
+    "Staerke"
+  )
+  deskriptiv_staerke_schuh_cvpa_robust
+  
+  robust_anova_staerke_schuh_cvpa <- bwtrim(
+    Mittelwert_Inkonsistenz ~ CVPA_Gruppe * Staerke,
+    id = number,
+    data = inkonsistenz_staerke_schuh_cvpa,
+    tr = 0.20
+  )
+  speichere_p_werte(
+    robust_anova_staerke_schuh_cvpa,
+    "robust_anova_staerke_schuh_cvpa"
+  )
+  robust_anova_staerke_schuh_cvpa
+}
 
 
 
@@ -3777,7 +4001,7 @@ shapiro_ermuedung <- ermuedung_plot %>%
 print(shapiro_ermuedung)
 speichere_p_werte(shapiro_ermuedung, "shapiro_ermuedung")
 
-# Normalverteilung grafisch prüfen: Density Plots
+# Normalverteilung grafisch darstellen: Density Plot (nur deskriptiv; nicht für die Testwahl)
 zeige_und_speichere_grafik(
   ggplot(ermuedung_plot, aes(x = Mittelwert_Inkonsistenz)) +
     geom_density(
@@ -3840,7 +4064,7 @@ for (outfit in conditions) {
   shapiro_zuletzt <- shapiro.test(zuletzt)
   speichere_p_werte(shapiro_zuletzt, "shapiro_zuletzt", outfit)
   
-  # Normalverteilung grafisch prüfen: Density Plot
+  # Normalverteilung grafisch darstellen: Density Plot (nur deskriptiv; nicht für die Testwahl)
   zeige_und_speichere_grafik(
     ggplot(
       daten_outfit,
@@ -3876,7 +4100,7 @@ for (outfit in conditions) {
   levene_p <- levene_result$`Pr(>F)`[1]
   speichere_p_werte(levene_result, "levene_result", outfit)
   
-  # Test abhängig von Voraussetzungen auswählen
+  # Test ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene auswählen
   if (shapiro_zuerst$p.value > 0.05 &&
       shapiro_zuletzt$p.value > 0.05) {
     if (levene_p > 0.05) {
