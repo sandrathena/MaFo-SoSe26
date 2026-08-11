@@ -17,6 +17,42 @@ library(lmerTest)
 library(mediation)
 
 
+###############################################################################################################
+#### Einheitliche Abkürzungen und größere Beschriftungen #####################################################
+###############################################################################################################
+
+# Interne Condition-Namen bleiben unverändert, damit Filter, Tests und Kontraste exakt gleich funktionieren.
+# Für sichtbare Tabellen- und Diagrammbeschriftungen werden ausschließlich die Abkürzungen verwendet.
+bedingung_labels <- c(
+  "Jacke-stark-dezentral"  = "GDS",
+  "Jacke-leicht-dezentral" = "GDL",
+  "Schuh-stark-dezentral"  = "KDS",
+  "Jacke-stark-zentral"    = "GZS",
+  "Min-Baseline"           = "M"
+)
+
+kurz_bedingung <- function(x) {
+  x <- as.character(x)
+  treffer <- x %in% names(bedingung_labels)
+  x[treffer] <- unname(bedingung_labels[x[treffer]])
+  x
+}
+
+# Großes Theme ausschließlich für Boxplots und Density-Plots, die später zu dritt nebeneinander stehen.
+# Alle anderen Diagramme verwenden weiterhin die ursprüngliche Standardbeschriftung.
+theme_box_density_gross <- theme_minimal(base_size = 26) +
+  theme(
+    plot.title = element_text(size = 30, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 24, hjust = 0.5),
+    axis.title = element_text(size = 24),
+    axis.text = element_text(size = 22),
+    legend.title = element_text(size = 22),
+    legend.text = element_text(size = 21),
+    strip.text = element_text(size = 22, face = "bold"),
+    plot.margin = margin(12, 14, 12, 14)
+  )
+
+
 
 # am Ende entfernen
 ###############################################################################################################
@@ -39,11 +75,44 @@ speichere_grafik <- function(plot, name = "Grafik") {
       "%03d_%s.png",
       grafik_counter,
       sicherer_name))
+  
+  # Standardgröße für normale Diagramme
+  breite <- 10
+  hoehe <- 7
+  
+  # Boxplots und Dichteplots etwas größer speichern.
+  # Dichteplots der Residuen bekommen extra Breite,
+  # damit lange Überschriften vollständig lesbar bleiben.
+  if (grepl("Boxplot", sicherer_name)) {
+    breite <- 13
+    hoehe <- 8
+  }
+  
+  if (grepl("Density|Dichteplot|Dichteplots", sicherer_name)) {
+    breite <- 14
+    hoehe <- 8.5
+  }
+  
+  if (grepl("Dichteplot_der_Residuen|Density_Plot_der_Residuen|Density_Normalverteilung_Ermuedung", sicherer_name)) {
+    breite <- 18
+    hoehe <- 9
+  }
+  
+  if (grepl("WSI_nach_Geschlecht", sicherer_name)) {
+    breite <- 16
+    hoehe <- 8.5
+  }
+  
+  if (grepl("WSI_nach_CVPA", sicherer_name)) {
+    breite <- 14
+    hoehe <- 8.5
+  }
+  
   ggsave(
     filename = dateiname,
     plot = plot,
-    width = 10,
-    height = 7,
+    width = breite,
+    height = hoehe,
     dpi = 300)
   invisible(plot)}
 
@@ -58,7 +127,7 @@ zeige_und_speichere_grafik <- function(plot, name = "Grafik") {
 
 
 # Laden der Daten
-salienz <- read.table("C:/Users/sandr/Documents/Uni_Winfo/MaFo/MaFo Final/Final/Salienz Endstand Raw Data.csv", header = FALSE, sep = ";")
+salienz <- read.table("/Users/caroline/Desktop/Studium/Master /SoSe 2026/Supply Chain Analytics/MaFo-SoSe26/data_project_1106607_2026_08_07.csv", header = FALSE, sep = ";")
 
 # Es sind 255 obs., davon sind 3 Header
 nrow(salienz)
@@ -1092,7 +1161,9 @@ cronbach_pro_outfit <- cronbach_pro_outfit %>%
       Cronbach_Alpha > 0.8 ~ "Gut",
       Cronbach_Alpha > 0.7 ~ "Akzeptabel",
       Cronbach_Alpha > 0.6 ~ "Fragwürdig",
-      TRUE ~ "Nicht ausreichend"))
+      TRUE ~ "Nicht ausreichend"),
+    Outfit = kurz_bedingung(Outfit),
+    Konstrukt = ifelse(Konstrukt == "Inkonsistenz", "WSI", Konstrukt))
 print(cronbach_pro_outfit)
 
 
@@ -1147,7 +1218,7 @@ bewertungen_long <- bewertungen_long %>%
   mutate(
     Variable = dplyr::recode(
       Variable,
-      "Mittelwert_Inkonsistenz" = "Inkonsistenz",
+      "Mittelwert_Inkonsistenz" = "WSI",
       "Mittelwert_Interesse" = "Interesse",
       "Mittelwert_Liking" = "Liking",
       "Mittelwert_Fluency" = "Fluency",
@@ -1179,12 +1250,13 @@ boxplots_outfits <- ggplot(
       "Jacke-stark-zentral" = "#CDAA7D",
       "Schuh-stark-dezentral" = "#EED5B7")) +
   scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
+  scale_x_discrete(labels = bedingung_labels) +
   labs(
-    title = "Bewertung der fünf Outfits",
+    title = "Bewertung der fünf Outfits (WSI und weitere Konstrukte)",
     subtitle = "Verteilung der Skalenmittelwerte nach Outfit",
     x = "Outfit",
     y = "Bewertung") +
-  theme_minimal() +
+  theme_box_density_gross +
   theme(
     legend.position = "none",
     plot.title = element_text(
@@ -1529,16 +1601,14 @@ plot_box_density <- function(data, farben, subtitle) {
       )
     ) +
     labs(
-      title = "Boxplot der Inkonsistenzbewertung",
-      subtitle = subtitle,
-      x = "Condition",
-      y = "Wahrgenommene stilistische Inkonsistenz"
+      title = paste("Boxplot der WSI:", subtitle),
+      x = "Bedingung",
+      y = "WSI"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       legend.position = "none",
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
+      plot.title = element_text(hjust = 0.5)
     )
   
   speichere_grafik(
@@ -1558,13 +1628,12 @@ plot_box_density <- function(data, farben, subtitle) {
     geom_density(linewidth = 1) +
     scale_color_manual(values = farben) +
     labs(
-      title = "Density Plot der Inkonsistenzbewertung",
-      subtitle = subtitle,
-      x = "Wahrgenommene stilistische Inkonsistenz",
+      title = paste("Dichteplot der WSI:", subtitle),
+      x = "WSI",
       y = "Dichte",
-      color = "Condition"
+      color = "Bedingung"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       legend.position = "bottom",
       plot.title = element_text(hjust = 0.5),
@@ -1611,12 +1680,11 @@ plot_differenz <- function(data, subtitle) {
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Differenzwerte",
-      subtitle = subtitle,
-      x = "Differenz der Inkonsistenzbewertung",
+      title = paste("Dichteplot der Differenzwerte:", subtitle),
+      x = "Differenz der WSI",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       legend.position = "none",
       plot.title = element_text(hjust = 0.5),
@@ -1650,8 +1718,8 @@ plot_groesse <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Schuh stark dezentral",
-    "Jacke stark dezentral"
+    "KDS",
+    "GDS"
   )
 )
 
@@ -1659,10 +1727,10 @@ plot_groesse <- prepare_plot_data(
 plot_box_density(
   plot_groesse,
   farben = c(
-    "Schuh stark dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "KDS" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
-  subtitle = "Großes vs. kleines stilistisch abweichendes Produkt"
+  subtitle = "GDS vs. KDS"
 )
 
 # Deskriptive Kennwerte
@@ -1690,7 +1758,7 @@ nrow(inkonsistenz_groesse)
 # Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_groesse,
-  "Jacke stark dezentral − Schuh stark dezentral"
+  "GDS − KDS"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1745,8 +1813,8 @@ plot_position <- prepare_plot_data(
     "Jacke-stark-zentral"
   ),
   labels = c(
-    "Jacke stark dezentral",
-    "Jacke stark zentral"
+    "GDS",
+    "GZS"
   )
 )
 
@@ -1759,10 +1827,10 @@ inkonsistenz_position <- prepare_paired_data(
 plot_box_density(
   plot_position,
   farben = c(
-    "Jacke stark dezentral" = "#EED5B7",
-    "Jacke stark zentral" = "#CDAA7D"
+    "GDS" = "#EED5B7",
+    "GZS" = "#CDAA7D"
   ),
-  subtitle = "Zentrale vs. dezentrale Positionierung"
+  subtitle = "GZS vs. GDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -1785,7 +1853,7 @@ nrow(inkonsistenz_position)
 # Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_position,
-  "Jacke stark zentral − Jacke stark dezentral"
+  "GZS − GDS"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1840,8 +1908,8 @@ plot_staerke <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Jacke leicht dezentral",
-    "Jacke stark dezentral"
+    "GDL",
+    "GDS"
   )
 )
 
@@ -1854,10 +1922,10 @@ inkonsistenz_staerke <- prepare_paired_data(
 plot_box_density(
   plot_staerke,
   farben = c(
-    "Jacke leicht dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "GDL" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
-  subtitle = "Leichte vs. starke stilistische Abweichung"
+  subtitle = "GDL vs. GDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -1880,7 +1948,7 @@ nrow(inkonsistenz_staerke)
 # Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_staerke,
-  "Jacke stark dezentral − Jacke leicht dezentral"
+  "GDS − GDL"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -1937,9 +2005,9 @@ inkonsistenz_anova_staerke <- prepare_plot_data(
     "Jacke-stark-dezentral"
   ),
   labels = c(
-    "Jacke minimalistisch dezentral",
-    "Jacke leicht dezentral",
-    "Jacke stark dezentral"
+    "M",
+    "GDL",
+    "GDS"
   )
 )
 
@@ -1947,11 +2015,11 @@ inkonsistenz_anova_staerke <- prepare_plot_data(
 plot_box_density(
   inkonsistenz_anova_staerke,
   farben = c(
-    "Jacke minimalistisch dezentral" = "#FFF5E6",
-    "Jacke leicht dezentral" = "#EED5B7",
-    "Jacke stark dezentral" = "#CDAA7D"
+    "M" = "#FFF5E6",
+    "GDL" = "#EED5B7",
+    "GDS" = "#CDAA7D"
   ),
-  subtitle = "Baseline vs. leichte vs. starke stilistische Abweichung"
+  subtitle = "M vs. GDL vs. GDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -1986,12 +2054,11 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Repeated-Measures-ANOVA: Stärke",
+      title = "Dichteplot der Residuen: Repeated-Measures-ANOVA Stärke",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
@@ -2055,8 +2122,8 @@ plot_schuh <- prepare_plot_data(
     "Schuh-stark-dezentral"
   ),
   labels = c(
-    "Minimalistischer Schuh",
-    "Starker Hip-Hop-Schuh"
+    "M",
+    "KDS"
   )
 )
 
@@ -2069,10 +2136,10 @@ inkonsistenz_schuh <- prepare_paired_data(
 plot_box_density(
   plot_schuh,
   farben = c(
-    "Minimalistischer Schuh" = "#EED5B7",
-    "Starker Hip-Hop-Schuh" = "#CDAA7D"
+    "M" = "#EED5B7",
+    "KDS" = "#CDAA7D"
   ),
-  subtitle = "Minimalistische Baseline vs. stark abweichender Hip-Hop-Schuh"
+  subtitle = "M vs. KDS"
 )
 
 # Deskriptive Kennwerte erstellen
@@ -2095,7 +2162,7 @@ nrow(inkonsistenz_schuh)
 # Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_schuh,
-  "Schuh stark dezentral − Min-Baseline"
+  "KDS − M"
 )
 
 # Normalverteilung mit Shapiro-Wilk prüfen
@@ -2225,18 +2292,18 @@ power_friedman_test <- function(matrix,
 #### Fall 1: Größe ############################################################################################
 power_groesse <- power_t_paired(
   inkonsistenz_groesse$Differenz_Inkonsistenz,
-  "Größe: Jacke vs. Schuh")
+  "Größe: GDS vs. KDS")
 
 #### Fall 2: Position #########################################################################################
 power_position <- power_wilcoxon(
   inkonsistenz_position$`Jacke-stark-zentral`,
   inkonsistenz_position$`Jacke-stark-dezentral`,
-  "Position: zentral vs. dezentral")
+  "Position: GZS vs. GDS")
 
 #### Fall 3: Stärke ###########################################################################################
 power_staerke <- power_t_paired(
   inkonsistenz_staerke$Differenz_Inkonsistenz,
-  "Stärke: stark vs. leicht")
+  "Stärke: GDS vs. GDL")
 
 #### Fall 4: Baseline vs. leicht vs. stark ####################################################################
 friedman_matrix <- inkonsistenz_anova_staerke %>%
@@ -2250,21 +2317,21 @@ friedman_matrix <- inkonsistenz_anova_staerke %>%
     values_from = Mittelwert_Inkonsistenz
   ) %>%
   dplyr::select(
-    `Jacke minimalistisch dezentral`,
-    `Jacke leicht dezentral`,
-    `Jacke stark dezentral`
+    `M`,
+    `GDL`,
+    `GDS`
   ) %>%
   drop_na() %>%
   as.matrix()
 power_friedman <- power_friedman_test(
   friedman_matrix,
-  "Stärke: Baseline vs. leicht vs. stark")
+  "Stärke: M vs. GDL vs. GDS")
 
 #### Fall 5: Baseline vs. starker Hip-Hop-Schuh ###############################################################
 power_schuh <- power_wilcoxon(
   inkonsistenz_schuh$`Schuh-stark-dezentral`,
   inkonsistenz_schuh$`Min-Baseline`,
-  "Schuh: Baseline vs. Hip-Hop-Schuh")
+  "Schuh: M vs. KDS")
 
 #### Übersicht #################################################################################################
 power_uebersicht <- bind_rows(
@@ -2333,18 +2400,16 @@ erstelle_boxplot_geschlecht <- function(data, faktor, stufe, subtitle,
   p <- p +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
-      title = "Inkonsistenzbewertung nach Geschlecht",
-      subtitle = subtitle,
+      title = paste("WSI nach Geschlecht:", subtitle),
       x = "Geschlecht",
-      y = "Wahrgenommene stilistische Inkonsistenz"
+      y = "WSI"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(legend.position = "none")
   
   if (titel_zentriert) {
     p <- p + theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5)
+      plot.title = element_text(hjust = 0.5)
     )
   }
   
@@ -2400,12 +2465,11 @@ density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE
   
   p <- p +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = subtitle,
+      title = paste("Dichteplot der Residuen:", subtitle),
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal()
+    theme_box_density_gross
   
   if (zentriert) {
     p <- p + theme(
@@ -2462,20 +2526,20 @@ inkonsistenz_position_geschlecht %>%
 # Boxplots
 boxplot_position_dezentral <- erstelle_boxplot_geschlecht(
   inkonsistenz_position_geschlecht, "Position", "dezentral",
-  "Jacke stark dezentral",
+  "GDS",
   manuelle_farben = TRUE,
   titel_zentriert = TRUE
 )
-speichere_grafik(boxplot_position_dezentral, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_position_dezentral, "WSI nach Geschlecht")
 print(boxplot_position_dezentral)
 
 boxplot_position_zentral <- erstelle_boxplot_geschlecht(
   inkonsistenz_position_geschlecht, "Position", "zentral",
-  "Jacke stark zentral",
+  "GZS",
   manuelle_farben = TRUE,
   titel_zentriert = TRUE
 )
-speichere_grafik(boxplot_position_zentral, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_position_zentral, "WSI nach Geschlecht")
 print(boxplot_position_zentral)
 
 # Deskriptive Kennwerte
@@ -2496,11 +2560,11 @@ residuen_position_geschlecht <- residuals(anova_position_geschlecht$lm)
 zeige_und_speichere_grafik(
   density_residuen(
     residuen_position_geschlecht,
-    "Factorial Mixed ANOVA: Position × Geschlecht",
+    "Faktorielle Mixed-ANOVA: Position × Geschlecht",
     farbig = TRUE,
     zentriert = TRUE
   ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_05 <- shapiro_residuen(
@@ -2569,16 +2633,16 @@ inkonsistenz_groesse_geschlecht %>%
 # Boxplots
 boxplot_groesse_klein <- erstelle_boxplot_geschlecht(
   inkonsistenz_groesse_geschlecht, "Groesse", "klein",
-  "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral"
+  "KDS"
 )
-speichere_grafik(boxplot_groesse_klein, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_groesse_klein, "WSI nach Geschlecht")
 print(boxplot_groesse_klein)
 
 boxplot_groesse_gross <- erstelle_boxplot_geschlecht(
   inkonsistenz_groesse_geschlecht, "Groesse", "gross",
-  "Großes stilistisch abweichendes Produkt: Jacke stark dezentral"
+  "GDS"
 )
-speichere_grafik(boxplot_groesse_gross, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_groesse_gross, "WSI nach Geschlecht")
 print(boxplot_groesse_gross)
 
 # Deskriptive Kennwerte
@@ -2599,9 +2663,9 @@ residuen_groesse_geschlecht <- residuals(anova_groesse_geschlecht$lm)
 zeige_und_speichere_grafik(
   density_residuen(
     residuen_groesse_geschlecht,
-    "Factorial Mixed ANOVA: Größe × Geschlecht"
+    "Faktorielle Mixed-ANOVA: Größe × Geschlecht"
   ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_06 <- shapiro_residuen(
@@ -2670,16 +2734,16 @@ inkonsistenz_staerke_geschlecht %>%
 # Boxplots
 boxplot_staerke_leicht <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_geschlecht, "Staerke", "leicht",
-  "Leichte stilistische Abweichung: Jacke leicht dezentral"
+  "Leichte stilistische Abweichung: GDL"
 )
-speichere_grafik(boxplot_staerke_leicht, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke_leicht, "WSI nach Geschlecht")
 print(boxplot_staerke_leicht)
 
 boxplot_staerke_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_geschlecht, "Staerke", "stark",
-  "Starke stilistische Abweichung: Jacke stark dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
-speichere_grafik(boxplot_staerke_stark, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke_stark, "WSI nach Geschlecht")
 print(boxplot_staerke_stark)
 
 # Deskriptive Kennwerte
@@ -2700,11 +2764,11 @@ residuen_staerke_geschlecht <- residuals(anova_staerke_geschlecht$lm)
 zeige_und_speichere_grafik(
   density_residuen(
     residuen_staerke_geschlecht,
-    "Factorial Mixed ANOVA: Stärke × Geschlecht",
+    "Faktorielle Mixed-ANOVA: Stärke × Geschlecht",
     farbig = TRUE,
     zentriert = TRUE
   ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_07 <- shapiro_residuen(
@@ -2773,16 +2837,16 @@ inkonsistenz_staerke_schuh_geschlecht %>%
 # Boxplots
 boxplot_staerke_schuh_baseline <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_schuh_geschlecht, "Staerke", "baseline",
-  "Minimalismus-Baseline"
+  "M"
 )
-speichere_grafik(boxplot_staerke_schuh_baseline, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke_schuh_baseline, "WSI nach Geschlecht")
 print(boxplot_staerke_schuh_baseline)
 
 boxplot_staerke_schuh_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke_schuh_geschlecht, "Staerke", "stark",
-  "Starker stilistisch abweichender Schuh"
+  "KDS"
 )
-speichere_grafik(boxplot_staerke_schuh_stark, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke_schuh_stark, "WSI nach Geschlecht")
 print(boxplot_staerke_schuh_stark)
 
 # Deskriptive Kennwerte
@@ -2805,9 +2869,9 @@ residuen_staerke_schuh_geschlecht <- residuals(
 zeige_und_speichere_grafik(
   density_residuen(
     residuen_staerke_schuh_geschlecht,
-    "Factorial Mixed ANOVA: Schuh-Stärke × Geschlecht"
+    "Faktorielle Mixed-ANOVA: Schuh-Stärke × Geschlecht"
   ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_08 <- shapiro_residuen(
@@ -2898,23 +2962,23 @@ inkonsistenz_staerke3_geschlecht %>%
 # Boxplots
 boxplot_staerke3_baseline <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "baseline",
-  "Minimalismus-Baseline"
+  "M"
 )
-speichere_grafik(boxplot_staerke3_baseline, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke3_baseline, "WSI nach Geschlecht")
 print(boxplot_staerke3_baseline)
 
 boxplot_staerke3_leicht <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "leicht",
-  "Leichte stilistische Abweichung: Jacke leicht dezentral"
+  "Leichte stilistische Abweichung: GDL"
 )
-speichere_grafik(boxplot_staerke3_leicht, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke3_leicht, "WSI nach Geschlecht")
 print(boxplot_staerke3_leicht)
 
 boxplot_staerke3_stark <- erstelle_boxplot_geschlecht(
   inkonsistenz_staerke3_geschlecht, "Staerke", "stark",
-  "Starke stilistische Abweichung: Jacke stark dezentral"
+  "Starke stilistische Abweichung: GDS"
 )
-speichere_grafik(boxplot_staerke3_stark, "Inkonsistenzbewertung nach Geschlecht")
+speichere_grafik(boxplot_staerke3_stark, "WSI nach Geschlecht")
 print(boxplot_staerke3_stark)
 
 # Deskriptive Kennwerte
@@ -2935,9 +2999,9 @@ residuen_staerke3_geschlecht <- residuals(anova_staerke3_geschlecht$lm)
 zeige_und_speichere_grafik(
   density_residuen(
     residuen_staerke3_geschlecht,
-    "Factorial Mixed ANOVA: Stärke × Geschlecht"
+    "Faktorielle Mixed-ANOVA: Stärke × Geschlecht"
   ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_09 <- shapiro_residuen(
@@ -3080,13 +3144,15 @@ erstelle_cvpa_boxplot <- function(data, faktor, stufe, subtitle) {
     ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
-      title = "Inkonsistenzbewertung nach CVPA",
-      subtitle = subtitle,
+      title = paste("Boxplot der WSI -", subtitle),
       x = "CVPA-Gruppe",
-      y = "Wahrgenommene stilistische Inkonsistenz"
+      y = "WSI"
     ) +
-    theme_minimal() +
-    theme(legend.position = "none")
+    theme_box_density_gross +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5)
+    )
 }
 
 deskriptiv_cvpa <- function(data, faktor) {
@@ -3143,17 +3209,16 @@ zeige_residuenplots_cvpa <- function(residuen, subtitle) {
         linewidth = 1
       ) +
       labs(
-        title = "Density Plot der Residuen",
-        subtitle = subtitle,
+        title = paste("Dichteplot der Residuen:", subtitle),
         x = "Residuen",
         y = "Dichte"
       ) +
-      theme_minimal() +
+      theme_box_density_gross +
       theme(
         plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5)
       ),
-    "Density Plot der Residuen"
+    "Dichteplot der Residuen"
   )
   
 }
@@ -3196,9 +3261,9 @@ boxplot_position_dezentral_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_position_cvpa,
   "Position",
   "dezentral",
-  "Starke stilistische Abweichung: Jacke dezentral"
+  "GDS"
 )
-speichere_grafik(boxplot_position_dezentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_position_dezentral_cvpa, "WSI nach CVPA")
 print(boxplot_position_dezentral_cvpa)
 
 boxplot_position_zentral_cvpa <- erstelle_cvpa_boxplot(
@@ -3207,7 +3272,7 @@ boxplot_position_zentral_cvpa <- erstelle_cvpa_boxplot(
   "zentral",
   "Starke stilistische Abweichung: Jacke zentral"
 )
-speichere_grafik(boxplot_position_zentral_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_position_zentral_cvpa, "WSI nach CVPA")
 print(boxplot_position_zentral_cvpa)
 
 deskriptiv_position_cvpa <- deskriptiv_cvpa(
@@ -3238,17 +3303,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Position × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Position × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_10 <- shapiro_residuen_cvpa(
@@ -3313,18 +3377,18 @@ boxplot_groesse_klein_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_groesse_cvpa,
   "Groesse",
   "klein",
-  "Kleines stilistisch abweichendes Produkt: Schuh stark dezentral"
+  "KDS"
 )
-speichere_grafik(boxplot_groesse_klein_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_groesse_klein_cvpa, "WSI nach CVPA")
 print(boxplot_groesse_klein_cvpa)
 
 boxplot_groesse_gross_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_groesse_cvpa,
   "Groesse",
   "gross",
-  "Großes stilistisch abweichendes Produkt: Jacke stark dezentral"
+  "GDS"
 )
-speichere_grafik(boxplot_groesse_gross_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_groesse_gross_cvpa, "WSI nach CVPA")
 print(boxplot_groesse_gross_cvpa)
 
 deskriptiv_groesse_cvpa <- deskriptiv_cvpa(
@@ -3353,17 +3417,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Größe × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_11 <- shapiro_residuen_cvpa(
@@ -3403,17 +3466,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Größe × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Größe × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_12 <- shapiro_residuen_cvpa(
@@ -3488,18 +3550,18 @@ boxplot_staerke_leicht_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_cvpa,
   "Staerke",
   "leicht",
-  "Leichte stilistische Abweichung: Jacke dezentral"
+  "GDL"
 )
-speichere_grafik(boxplot_staerke_leicht_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_staerke_leicht_cvpa, "WSI nach CVPA")
 print(boxplot_staerke_leicht_cvpa)
 
 boxplot_staerke_stark_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_cvpa,
   "Staerke",
   "stark",
-  "Starke stilistische Abweichung: Jacke dezentral"
+  "GDS"
 )
-speichere_grafik(boxplot_staerke_stark_cvpa, "Inkonsistenzbewertung nach CVPA")
+speichere_grafik(boxplot_staerke_stark_cvpa, "WSI nach CVPA")
 print(boxplot_staerke_stark_cvpa)
 
 deskriptiv_staerke_cvpa <- deskriptiv_cvpa(
@@ -3528,17 +3590,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Stärke × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_13 <- shapiro_residuen_cvpa(
@@ -3627,14 +3688,14 @@ zeige_und_speichere_grafik(
     ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
-      title = "Inkonsistenzbewertung nach Stärke und CVPA",
-      subtitle = "Baseline, leichte und starke stilistische Abweichung",
+      title = "WSI nach Stärke und CVPA",
+      subtitle = "M, GDL und GDS",
       x = "Stärke der stilistischen Abweichung",
-      y = "Wahrgenommene stilistische Inkonsistenz",
+      y = "WSI",
       fill = "CVPA-Gruppe"
     ) +
-    theme_minimal(),
-  "Inkonsistenzbewertung nach Stärke und CVPA"
+    theme_box_density_gross,
+  "WSI nach Stärke und CVPA"
 )
 
 deskriptiv_staerke3_cvpa <- deskriptiv_cvpa(
@@ -3663,17 +3724,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Stärke × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_14 <- shapiro_residuen_cvpa(
@@ -3751,11 +3811,11 @@ boxplot_staerke_schuh_baseline_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_schuh_cvpa,
   "Staerke",
   "baseline",
-  "Minimalistische Baseline"
+  "M"
 )
 speichere_grafik(
   boxplot_staerke_schuh_baseline_cvpa,
-  "Inkonsistenzbewertung nach CVPA"
+  "WSI nach CVPA"
 )
 print(boxplot_staerke_schuh_baseline_cvpa)
 
@@ -3763,11 +3823,11 @@ boxplot_staerke_schuh_stark_cvpa <- erstelle_cvpa_boxplot(
   inkonsistenz_staerke_schuh_cvpa,
   "Staerke",
   "stark",
-  "Stark stilistisch abweichender Schuh: dezentral"
+  "KDS"
 )
 speichere_grafik(
   boxplot_staerke_schuh_stark_cvpa,
-  "Inkonsistenzbewertung nach CVPA"
+  "WSI nach CVPA"
 )
 print(boxplot_staerke_schuh_stark_cvpa)
 
@@ -3797,17 +3857,16 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Density Plot der Residuen",
-      subtitle = "Factorial Mixed ANOVA: Stärke Schuh × CVPA",
+      title = "Dichteplot der Residuen: Faktorielle Mixed-ANOVA Schuh-Stärke × CVPA",
       x = "Residuen",
       y = "Dichte"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plot der Residuen"
+  "Dichteplot der Residuen"
 )
 
 shapiro_auto_15 <- shapiro_residuen_cvpa(
@@ -3932,7 +3991,8 @@ deskriptiv_ermuedung <- ermuedung_plot %>%
     Mittelwert = mean(Mittelwert_Inkonsistenz, na.rm = TRUE),
     SD = sd(Mittelwert_Inkonsistenz, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  mutate(Condition = kurz_bedingung(Condition))
 
 print(deskriptiv_ermuedung)
 
@@ -3940,11 +4000,11 @@ print(deskriptiv_ermuedung)
 #### Boxplots ################################################################################################
 
 outfit_namen <- c(
-  "Min-Baseline" = "Baseline",
-  "Jacke-leicht-dezentral" = "Jacke leicht dezentral",
-  "Jacke-stark-dezentral" = "Jacke stark dezentral",
-  "Jacke-stark-zentral" = "Jacke stark zentral",
-  "Schuh-stark-dezentral" = "Schuh stark dezentral"
+  "Min-Baseline" = "M",
+  "Jacke-leicht-dezentral" = "GDL",
+  "Jacke-stark-dezentral" = "GDS",
+  "Jacke-stark-zentral" = "GZS",
+  "Schuh-stark-dezentral" = "KDS"
 )
 
 boxplots_ermuedung <- list()
@@ -3971,12 +4031,12 @@ for (outfit in conditions) {
     ) +
     scale_y_continuous(breaks = 1:5, limits = c(1, 5)) +
     labs(
-      title = paste("Inkonsistenzbewertung:", outfit_namen[outfit]),
+      title = paste("WSI:", outfit_namen[outfit]),
       subtitle = "Als erstes vs. als letztes gezeigt",
       x = "Position in der Befragung",
-      y = "Wahrgenommene stilistische Inkonsistenz"
+      y = "WSI"
     ) +
-    theme_minimal() +
+    theme_box_density_gross +
     theme(
       legend.position = "none",
       plot.title = element_text(hjust = 0.5),
@@ -4007,11 +4067,10 @@ zeige_und_speichere_grafik(
       alpha = 0.4,
       linewidth = 1
     ) +
-    facet_grid(Condition ~ Reihenfolge) +
+    facet_grid(Condition ~ Reihenfolge, labeller = labeller(Condition = as_labeller(bedingung_labels))) +
     labs(
-      title = "Density Plots der Inkonsistenzbewertung",
-      subtitle = "Erstes vs. letztes gezeigtes Outfit",
-      x = "Wahrgenommene stilistische Inkonsistenz",
+      title = "Dichteplot der WSI: Erstes vs. letztes gezeigtes Outfit",
+      x = "WSI",
       y = "Dichte"
     ) +
     theme_minimal() +
@@ -4019,7 +4078,7 @@ zeige_und_speichere_grafik(
       plot.title = element_text(hjust = 0.5),
       plot.subtitle = element_text(hjust = 0.5)
     ),
-  "Density Plots der Inkonsistenzbewertung"
+  "Dichteplots der WSI"
 )
 
 
@@ -4075,9 +4134,8 @@ for (outfit in conditions) {
       ) +
       facet_wrap(~ Reihenfolge) +
       labs(
-        title = paste("Density Plot:", outfit_namen[outfit]),
-        subtitle = "Als erstes vs. als letztes gezeigt",
-        x = "Wahrgenommene stilistische Inkonsistenz",
+        title = paste("Dichteplot der WSI:", outfit_namen[outfit], "– als erstes vs. als letztes gezeigt"),
+        x = "WSI",
         y = "Dichte"
       ) +
       theme_minimal() +
@@ -4172,6 +4230,11 @@ for (i in seq_len(nrow(ergebnisse_ermuedung))) {
     p_wert = ergebnisse_ermuedung$p_Wert_Holm[i]
   )
 }
+
+# Für die sichtbare Ergebnistabelle die Outfit-Bezeichnungen abkürzen.
+ergebnisse_ermuedung <- ergebnisse_ermuedung %>%
+  mutate(Outfit = kurz_bedingung(Outfit))
+
 print(ergebnisse_ermuedung)
 
 
@@ -4180,12 +4243,288 @@ print(ergebnisse_ermuedung)
 #############################################################################################################
 #### Mediation ##############################################################################################
 #############################################################################################################
+### Caros vorlesungs naher ANsatz: 
+############################################################
+# Vorlesungsnahe Mediationsanalyse
+# X -> WSI -> Bewertung
+############################################################
+
+library(dplyr)
+library(tidyr)
+library(lme4)
+library(mediation)
+
+set.seed(123)
+
+# Voraussetzung:
+# salienz_reshaped existiert bereits und enthält:
+# number
+# Condition
+# Mittelwert_Inkonsistenz
+# Mittelwert_Interesse
+# Mittelwert_Liking
+# Mittelwert_Fluency
+# Mittelwert_Kreativitaet
+# Mittelwert_Authentizitaet
+# Mittelwert_SophisticatedTaste
 
 
-#### IRGENDWAS MIT DEN LMER PAKETEN STIMMT HIE RNICHT BRUH
+############################################################
+# 1. Zu untersuchende Kontraste
+############################################################
+
+mediation_kontraste <- tibble::tribble(
+  ~Kontrast, ~Bedingung_0, ~Bedingung_1,
+  
+  "Größe",
+  "Schuh-stark-dezentral",
+  "Jacke-stark-dezentral",
+  
+  "Stärke",
+  "Jacke-leicht-dezentral",
+  "Jacke-stark-dezentral",
+  
+  "Position",
+  "Jacke-stark-dezentral",
+  "Jacke-stark-zentral"
+)
+
+
+############################################################
+# 2. Zielvariablen
+############################################################
+
+mediation_outcomes <- c(
+  Interesse = "Mittelwert_Interesse",
+  Liking = "Mittelwert_Liking",
+  Fluency = "Mittelwert_Fluency",
+  Kreativitaet = "Mittelwert_Kreativitaet",
+  Authentizitaet = "Mittelwert_Authentizitaet",
+  SophisticatedTaste = "Mittelwert_SophisticatedTaste"
+)
+
+
+############################################################
+# 3. Daten für einen Kontrast vorbereiten
+############################################################
+
+bereite_mediationsdaten_vor <- function(
+    data,
+    bedingung_0,
+    bedingung_1,
+    outcome_variable) {
+  
+  # Nur die beiden relevanten Bedingungen
+  daten <- data %>%
+    filter(Condition %in% c(bedingung_0, bedingung_1)) %>%
+    transmute(
+      number = factor(number),
+      Condition,
+      M = as.numeric(Mittelwert_Inkonsistenz),
+      Y = as.numeric(.data[[outcome_variable]])
+    ) %>%
+    drop_na()
+  
+  # X codieren:
+  # 0 = Ausgangsbedingung
+  # 1 = experimentell stärkere Salienzbedingung
+  daten <- daten %>%
+    mutate(
+      X = ifelse(Condition == bedingung_1, 1, 0)
+    )
+  
+  # Personenmittelwert des Mediators
+  # trennt Within- und Between-Person-Anteil
+  daten <- daten %>%
+    group_by(number) %>%
+    mutate(
+      M_Person = mean(M)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      M_Person_zentriert =
+        M_Person - mean(M_Person)
+    )
+  
+  daten
+}
+
+
+############################################################
+# 4. Eine Mediation schätzen
+############################################################
+
+schaetze_mediation <- function(daten, sims = 5000) {
+  
+  # Pfad a:
+  # UV -> Mediator
+  pfad_a <- lme4::lmer(
+    M ~ X + (1 | number),
+    data = daten,
+    REML = FALSE
+  )
+  
+  # Pfad b und direkter Effekt c':
+  # UV + Mediator -> AV
+  pfad_b_c <- lme4::lmer(
+    Y ~ X + M + M_Person_zentriert + (1 | number),
+    data = daten,
+    REML = FALSE
+  )
+  
+  # Totaler Effekt c:
+  pfad_c <- lme4::lmer(
+    Y ~ X + (1 | number),
+    data = daten,
+    REML = FALSE
+  )
+  
+  # Mediation
+  mediation_result <- mediation::mediate(
+    model.m = pfad_a,
+    model.y = pfad_b_c,
+    treat = "X",
+    mediator = "M",
+    control.value = 0,
+    treat.value = 1,
+    sims = sims,
+    boot = FALSE,
+    group.out = "number"
+  )
+  
+  list(
+    pfad_a = pfad_a,
+    pfad_b_c = pfad_b_c,
+    pfad_c = pfad_c,
+    mediation = mediation_result
+  )
+}
+
+
+############################################################
+# 5. Ergebnisse aus mediate() extrahieren
+############################################################
+
+extrahiere_ergebnisse <- function(modell) {
+  
+  med <- modell$mediation
+  
+  # ACME = indirekter Effekt
+  ACME <- med$d.avg
+  ACME_CI <- med$d.avg.ci
+  p_ACME <- med$d.avg.p
+  
+  # ADE = direkter Effekt
+  ADE <- med$z.avg
+  ADE_CI <- med$z.avg.ci
+  p_ADE <- med$z.avg.p
+  
+  # Totaler Effekt
+  Total <- med$tau.coef
+  Total_CI <- med$tau.ci
+  p_Total <- med$tau.p
+  
+  data.frame(
+    Pfad_a = unname(lme4::fixef(modell$pfad_a)["X"]),
+    Pfad_b = unname(lme4::fixef(modell$pfad_b_c)["M"]),
+    
+    ACME = ACME,
+    ACME_CI_unten = ACME_CI[1],
+    ACME_CI_oben = ACME_CI[2],
+    p_ACME = p_ACME,
+    
+    ADE = ADE,
+    ADE_CI_unten = ADE_CI[1],
+    ADE_CI_oben = ADE_CI[2],
+    p_ADE = p_ADE,
+    
+    Total_Effect = Total,
+    Total_CI_unten = Total_CI[1],
+    Total_CI_oben = Total_CI[2],
+    p_Total = p_Total
+  )
+}
+
+
+############################################################
+# 6. Alle 18 Mediationen durchführen
+############################################################
+
+ergebnis_liste <- list()
+zaehler <- 0
+
+for (i in seq_len(nrow(mediation_kontraste))) {
+  
+  kontrast <- mediation_kontraste[i, ]
+  
+  for (j in seq_along(mediation_outcomes)) {
+    
+    outcome_name <- names(mediation_outcomes)[j]
+    outcome_variable <- mediation_outcomes[j]
+    
+    # Daten vorbereiten
+    daten <- bereite_mediationsdaten_vor(
+      data = salienz_reshaped,
+      bedingung_0 = kontrast$Bedingung_0,
+      bedingung_1 = kontrast$Bedingung_1,
+      outcome_variable = outcome_variable
+    )
+    
+    # Mediation rechnen
+    modell <- schaetze_mediation(
+      daten = daten,
+      sims = 5000
+    )
+    
+    # Ergebnisse extrahieren
+    ergebnis <- extrahiere_ergebnisse(modell)
+    
+    zaehler <- zaehler + 1
+    
+    ergebnis_liste[[zaehler]] <- data.frame(
+      Kontrast = kontrast$Kontrast,
+      Outcome = outcome_name,
+      n = n_distinct(daten$number),
+      ergebnis
+    )
+  }
+}
+
+
+############################################################
+# 7. Ergebnistabelle
+############################################################
+
+mediation_ergebnisse <- bind_rows(ergebnis_liste) %>%
+  group_by(Kontrast) %>%
+  mutate(
+    p_ACME_Holm = p.adjust(
+      p_ACME,
+      method = "holm"
+    )
+  ) %>%
+  ungroup()
+
+print(mediation_ergebnisse)
+
+
+############################################################
+# 8. Ergebnisse speichern
+############################################################
+
+write.csv2(
+  mediation_ergebnisse,
+  "Mediationsanalyse_Ergebnisse.csv",
+  row.names = FALSE,
+  fileEncoding = "UTF-8"
+)
+
+
+
 
 
 #############################################################################################################
+###Minijes Ansatz: 
 #### Hypothese 1: Größe -> Fluency -> Inkonsistenz
 #############################################################################################################
 
@@ -4209,7 +4548,7 @@ cooks_groesse <- cooks.distance(influence_groesse)
 plot(
   cooks_groesse,
   type = "h",
-  main = "Cook's Distance – Größe",
+  main = "Cook-Distanz – Größe",
   xlab = "Versuchsperson",
   ylab = "Cook's Distance"
 )
@@ -4288,7 +4627,7 @@ cooks_staerke <- cooks.distance(influence_staerke)
 plot(
   cooks_staerke,
   type = "h",
-  main = "Cook's Distance – Stärke",
+  main = "Cook-Distanz – Stärke",
   xlab = "Versuchsperson",
   ylab = "Cook's Distance"
 )
@@ -4366,7 +4705,7 @@ cooks_position <- cooks.distance(influence_position)
 plot(
   cooks_position,
   type = "h",
-  main = "Cook's Distance – Position",
+  main = "Cook-Distanz – Position",
   xlab = "Versuchsperson",
   ylab = "Cook's Distance"
 )
@@ -4476,11 +4815,11 @@ stilzuordnung_long <- salienz_reshaped %>%
         "Min-Baseline"
       ),
       labels = c(
-        "Jacke stark\ndezentral",
-        "Jacke leicht\ndezentral",
-        "Schuh stark\ndezentral",
-        "Jacke stark\nzentral",
-        "Minimalistische\nBaseline"
+        "GDS",
+        "GDL",
+        "KDS",
+        "GZS",
+        "M"
       )
     )
   )
