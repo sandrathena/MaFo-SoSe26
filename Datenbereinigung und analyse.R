@@ -4295,12 +4295,7 @@ mediation_kontraste <- tibble::tribble(
 ############################################################
 
 mediation_outcomes <- c(
-  Interesse = "Mittelwert_Interesse",
-  Liking = "Mittelwert_Liking",
-  Fluency = "Mittelwert_Fluency",
-  Kreativitaet = "Mittelwert_Kreativitaet",
-  Authentizitaet = "Mittelwert_Authentizitaet",
-  SophisticatedTaste = "Mittelwert_SophisticatedTaste"
+  Fluency = "Mittelwert_Fluency"
 )
 
 
