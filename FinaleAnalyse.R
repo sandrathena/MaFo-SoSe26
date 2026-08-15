@@ -20,8 +20,6 @@ library(mediation)
 # Laden der Daten
 salienz <- read.table("raw_data.csv", header = FALSE, sep = ";")
 
-# Interne Condition-Namen bleiben unverändert, damit Filter, Tests und Kontraste exakt gleich funktionieren.
-# Für sichtbare Tabellen- und Diagrammbeschriftungen werden ausschließlich die Abkürzungen verwendet.
 bedingung_labels <- c(
   "Jacke-stark-dezentral"  = "GDS",
   "Jacke-leicht-dezentral" = "GDL",
@@ -37,8 +35,7 @@ kurz_bedingung <- function(x) {
   x
 }
 
-# Großes Theme ausschließlich für Boxplots und Density-Plots, die später zu dritt nebeneinander stehen.
-# Alle anderen Diagramme verwenden weiterhin die ursprüngliche Standardbeschriftung.
+
 theme_box_density_gross <- theme_minimal(base_size = 26) +
   theme(
     plot.title = element_text(size = 30, face = "bold", hjust = 0.5),
@@ -51,7 +48,7 @@ theme_box_density_gross <- theme_minimal(base_size = 26) +
     plot.margin = margin(12, 14, 12, 14)
   )
 
-# Alle im Skript erzeugten Grafiken nummeriert als PNG speichern
+# Alle im Skript erzeugten Grafiken nummeriert als PNG speichern!!!!!!!!!
 grafik_ordner <- "Grafiken"
 dir.create(grafik_ordner, showWarnings = FALSE, recursive = TRUE)
 
@@ -72,9 +69,7 @@ speichere_grafik <- function(plot, name = "Grafik") {
   breite <- 10
   hoehe <- 7
   
-  # Boxplots und Dichteplots etwas größer speichern.
-  # Dichteplots der Residuen bekommen extra Breite,
-  # damit lange Überschriften vollständig lesbar bleiben.
+
   if (grepl("Boxplot", sicherer_name)) {
     breite <- 13
     hoehe <- 8
@@ -108,8 +103,7 @@ speichere_grafik <- function(plot, name = "Grafik") {
     dpi = 300)
   invisible(plot)}
 
-# Für Grafiken, die im ursprünglichen Code direkt erzeugt und angezeigt werden,
-# wird die Grafik gespeichert und anschließend wie bisher als Ergebnis zurückgegeben.
+
 zeige_und_speichere_grafik <- function(plot, name = "Grafik") {
   speichere_grafik(plot, name)
   plot
@@ -139,7 +133,7 @@ colnames(salienz) <- make.names(colnames(salienz), unique = TRUE)
 # Es sind 252 Teilnehmer
 nrow(salienz)
 
-# 6. ´Testteilnehmer entfernen 
+# 6. Testteilnehmer entfernen 
 # diese haben Matheaufgaben nicht beantwortet  -> dort steht aber kein N/A sondern -77 wegen unipark
 class(salienz$Plus.Rechnung.2)
 salienz <- salienz %>%
@@ -175,10 +169,17 @@ zeige_und_speichere_grafik(
       title = "Altersverteilung der Stichprobe n = 247",
       x = "Alter in Jahren",
       y = "Anzahl der Teilnehmenden") +
-    theme_minimal() +
+    theme_minimal(base_size = 18) +
     theme(
       plot.title = element_text(
-        hjust = 0.5)),
+        size = 22,
+        face = "bold",
+        hjust = 0.5),
+      axis.title = element_text(
+        size = 30),
+      axis.text = element_text(
+        size = 20)
+    ),
   "Altersverteilung der Stichprobe"
 )
 
@@ -210,8 +211,6 @@ geschlecht_legende <- setNames(
 )
 
 # Kreisdiagramm
-# Kleine Segmente werden nicht im Kreis beschriftet, damit sich Texte nicht überlagern.
-# Die vollständigen Angaben stehen in der Legende.
 zeige_und_speichere_grafik(
   ggplot(geschlecht_plot, aes(x = "", y = n, fill = Geschlecht_Label)) +
     geom_col(width = 1, color = "white", linewidth = 0.8) +
@@ -240,7 +239,6 @@ zeige_und_speichere_grafik(
 )
 
 #Einkommensverteilung 
-# Reihenfolge der Einkommenskategorien festlegen
 einkommen_plot <- salienz %>%
   filter(!is.na(Einkommen)) %>%
   count(Einkommen) %>%
@@ -324,8 +322,7 @@ zeige_und_speichere_grafik(
   "Tätigkeitsverteilung der Stichprobe"
 )
 
-# Fortsetzung Data Preperation & Cleaning 
-# Ausschlusskriterien umsetzen
+
 # 1. Mobile Geräte ausschließen 
 
 # Mit Hilfe von browser.id bestimmen, ob PC/Laptop oder mobiles Gerät genutzt wurde
@@ -510,10 +507,31 @@ zeige_und_speichere_grafik(
       fill = guide_legend(
         nrow = 1,
         byrow = TRUE)) +
-    theme_minimal() +
+    theme_minimal(base_size = 18) +
     theme(
-      legend.position = "bottom",
-      plot.title = element_text(hjust = 0.5)),
+      plot.title = element_text(
+        size = 24,
+        face = "bold",
+        hjust = 0.5
+      ),
+      axis.title.y = element_text(
+        size = 20
+      ),
+      axis.text.x = element_text(
+        size = 18
+      ),
+      axis.text.y = element_text(
+        size = 17
+      ),
+      legend.position = "top",
+      legend.text = element_text(
+        size = 18
+      ),
+      legend.key.width = unit(
+        2,
+        "cm"
+      )
+    ),
   "Auffällige Gesamtbearbeitungszeiten"
 )
 
@@ -764,8 +782,6 @@ geschlecht_legende <- setNames(
 )
 
 # Kreisdiagramm
-# Kleine Segmente werden nicht im Kreis beschriftet, damit sich Texte nicht überlagern.
-# Die vollständigen Angaben stehen in der Legende.
 zeige_und_speichere_grafik(
   ggplot(geschlecht_plot, aes(x = "", y = n, fill = Geschlecht_Label)) +
     geom_col(width = 1, color = "white", linewidth = 0.8) +
@@ -794,7 +810,6 @@ zeige_und_speichere_grafik(
 )
 
 # Einkommensverteilung 
-# Reihenfolge der Einkommenskategorien festlegen
 einkommen_plot <- salienz %>%
   filter(!is.na(Einkommen)) %>%
   count(Einkommen) %>%
@@ -1261,7 +1276,7 @@ plot_box_density <- function(data, farben, subtitle) {
       )
     ) +
     labs(
-      title = paste("Boxplot der WSI:", subtitle),
+      title = paste("Boxplots der WSI:", subtitle),
       x = "Bedingung",
       y = "WSI"
     ) +
@@ -1288,7 +1303,7 @@ plot_box_density <- function(data, farben, subtitle) {
     geom_density(linewidth = 1) +
     scale_color_manual(values = farben) +
     labs(
-      title = paste("Dichteplot der WSI:", subtitle),
+      title = paste("Dichteplots der WSI:", subtitle),
       x = "WSI",
       y = "Dichte",
       color = "Bedingung"
@@ -1322,9 +1337,6 @@ deskriptive_kennwerte <- function(data) {
     )
 }
 
-# Grafische Normalverteilungsdarstellung nur zur Beschreibung.
-# WICHTIG: Die Grafiken werden NICHT für die Testwahl berücksichtigt.
-# Die Testwahl erfolgt ausschließlich anhand der p-Werte der formalen Annahmentests.
 plot_differenz <- function(data, subtitle) {
   
   # Density Plot
@@ -1412,7 +1424,6 @@ inkonsistenz_groesse <- inkonsistenz_groesse %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_groesse)
 
-# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_groesse,
   "GDS − KDS"
@@ -1500,7 +1511,6 @@ inkonsistenz_position <- inkonsistenz_position %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_position)
 
-# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_position,
   "GZS − GDS"
@@ -1588,7 +1598,6 @@ inkonsistenz_staerke <- inkonsistenz_staerke %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_staerke)
 
-# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
 plot_differenz(
   inkonsistenz_staerke,
   "Stärke (2 Stufen): GDS − GDL"
@@ -1687,7 +1696,7 @@ zeige_und_speichere_grafik(
       linewidth = 1
     ) +
     labs(
-      title = "Dichteplot der Residuen: Repeated-Measures-ANOVA Stärke (3 Stufen)",
+      title = "Dichteplot der Residuen",
       x = "Residuen",
       y = "Dichte"
     ) +
@@ -1784,7 +1793,7 @@ inkonsistenz_schuh <- inkonsistenz_schuh %>%
 # Anzahl vollständiger Paare kontrollieren
 nrow(inkonsistenz_schuh)
 
-# Normalverteilung grafisch darstellen (nur deskriptiv; nicht für die Testwahl)
+# Normalverteilung grafisch darstellen
 plot_differenz(
   inkonsistenz_schuh,
   "KDS − M"
@@ -2028,8 +2037,6 @@ cohen_dz_uebersicht <- data.frame(
 cohen_dz_uebersicht
 
 # Unterschiedliche Gruppen: Geschlechtsunterschiede 
-# Die wiederkehrenden Arbeitsschritte werden in Hilfsfunktionen zusammengefasst.
-# Methodik, Filterung, Faktorstufen, Tests und Grafiken bleiben unverändert.
 
 bereite_geschlechtsdaten_vor <- function(conditions, faktor, zuordnung, stufen) {
   salienz_reshaped %>%
@@ -2152,10 +2159,6 @@ density_residuen <- function(residuen, subtitle, farbig = TRUE, zentriert = TRUE
   
   p
 }
-
-# Für alle folgenden Mixed-ANOVA-Blöcke gilt ebenfalls:
-# Density-Plots dienen nur der Beschreibung. Die Entscheidung zwischen klassischem und robustem Test
-# erfolgt ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene (alpha = 0.05).
 
 shapiro_residuen <- function(residuen) {
   test <- shapiro.test(as.numeric(residuen))
@@ -3576,7 +3579,6 @@ shapiro_ermuedung <- ermuedung_plot %>%
 
 print(shapiro_ermuedung)
 
-# Normalverteilung grafisch darstellen: Density Plot (nur deskriptiv; nicht für die Testwahl)
 zeige_und_speichere_grafik(
   ggplot(ermuedung_plot, aes(x = Mittelwert_Inkonsistenz)) +
     geom_density(
@@ -3630,7 +3632,6 @@ for (outfit in conditions) {
   
   shapiro_zuletzt <- shapiro.test(zuletzt)
   
-  # Normalverteilung grafisch darstellen: Density Plot (nur deskriptiv; nicht für die Testwahl)
   zeige_und_speichere_grafik(
     ggplot(
       daten_outfit,
@@ -3663,7 +3664,6 @@ for (outfit in conditions) {
   )
   levene_p <- levene_result$`Pr(>F)`[1]
   
-  # Test ausschließlich anhand der p-Werte von Shapiro-Wilk und Levene auswählen
   if (shapiro_zuerst$p.value > 0.05 &&
       shapiro_zuletzt$p.value > 0.05) {
     if (levene_p > 0.05) {
@@ -3735,18 +3735,6 @@ print(ergebnisse_ermuedung)
 # Mediation - vorlesungs naher Ansatz: 
 # X -> WSI -> Bewertung
 set.seed(123)
-
-# Voraussetzung:
-# salienz_reshaped existiert bereits und enthält:
-# number
-# Condition
-# Mittelwert_Inkonsistenz
-# Mittelwert_Interesse
-# Mittelwert_Liking
-# Mittelwert_Fluency
-# Mittelwert_Kreativitaet
-# Mittelwert_Authentizitaet
-# Mittelwert_SophisticatedTaste
 
 # 1. Zu untersuchende Kontraste
 mediation_kontraste <- tibble::tribble(
@@ -3964,71 +3952,6 @@ write.csv2(
 )
 
 # Ausblick 
-
-# Stilzuordnung prüfen 
-# Stilbewertungen ins Long-Format bringen
-stilzuordnung_long <- salienz_reshaped %>%
-  dplyr::select(
-    number,
-    Condition,
-    Minimalismus,
-    HipHopActiveWear,
-    HippieBoho
-  ) %>%
-  pivot_longer(
-    cols = c(
-      Minimalismus,
-      HipHopActiveWear,
-      HippieBoho
-    ),
-    names_to = "Stil",
-    values_to = "Bewertung"
-  ) %>%
-  mutate(
-    Bewertung = as.numeric(Bewertung),
-    
-    Stil = factor(
-      Stil,
-      levels = c(
-        "Minimalismus",
-        "HipHopActiveWear",
-        "HippieBoho"
-      ),
-      labels = c(
-        "Minimalismus",
-        "HipHopActiveWear",
-        "HippieBoho"
-      )
-    ),
-    
-    Condition = factor(
-      Condition,
-      levels = c(
-        "Jacke-stark-dezentral",
-        "Jacke-leicht-dezentral",
-        "Schuh-stark-dezentral",
-        "Jacke-stark-zentral",
-        "Min-Baseline"
-      ),
-      labels = c(
-        "GDS",
-        "GDL",
-        "KDS",
-        "GZS",
-        "M"
-      )
-    )
-  )
-
-# Mittelwerte und Standardfehler berechnen
-stilzuordnung_summary <- stilzuordnung_long %>%
-  group_by(Condition, Stil) %>%
-  summarise(
-    Mittelwert = mean(Bewertung, na.rm = TRUE),
-    SE = sd(Bewertung, na.rm = TRUE) / sqrt(sum(!is.na(Bewertung))),
-    .groups = "drop"
-  )
-
 # Liniengraph mit Fehlerbalken
 zeige_und_speichere_grafik(
   ggplot(
@@ -4040,15 +3963,15 @@ zeige_und_speichere_grafik(
       group = Stil
     )
   ) +
-    geom_line(linewidth = 0.8) +
-    geom_point(size = 2.5) +
+    geom_line(linewidth = 1.5) +
+    geom_point(size = 4) +
     geom_errorbar(
       aes(
         ymin = Mittelwert - SE,
         ymax = Mittelwert + SE
       ),
-      width = 0.08,
-      linewidth = 0.7
+      width = 0.10,
+      linewidth = 1.2
     ) +
     scale_y_continuous(
       breaks = seq(1, 5, by = 0.5),
@@ -4072,13 +3995,30 @@ zeige_und_speichere_grafik(
       y = "Stilbewertung (trifft nicht zu 1 – 5 trifft zu)",
       color = NULL
     ) +
-    theme_minimal() +
+    theme_minimal(base_size = 18) +
     theme(
       plot.title = element_text(
+        size = 24,
+        face = "bold",
         hjust = 0.5
       ),
-      legend.position = "top"
+      axis.title.y = element_text(
+        size = 20
+      ),
+      axis.text.x = element_text(
+        size = 18
+      ),
+      axis.text.y = element_text(
+        size = 17
+      ),
+      legend.position = "top",
+      legend.text = element_text(
+        size = 18
+      ),
+      legend.key.width = unit(
+        2,
+        "cm"
+      )
     ),
   "Manipulationscheck der wahrgenommenen Stilzuordnung"
 )
-
