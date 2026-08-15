@@ -1,4 +1,4 @@
-#MaFo Analyse Code - Gruppe Salienz 
+#MaFo Analyse Code, Gruppe Salienz 
 
 #Pakete laden, bei Bedarf vorher noch installieren 
 library(ggbreak)
