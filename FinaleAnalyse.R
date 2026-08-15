@@ -1847,34 +1847,50 @@ power_wilcoxon <- function(x, y, modell,
                            alpha = 0.05,
                            B = 5000,
                            seed = 123) {
+  
   # Nur vollständige Paare
   komplett <- complete.cases(x, y)
   x <- x[komplett]
   y <- y[komplett]
   n <- length(x)
+  
+  # Cohen's dz deskriptiv aus den gepaarten Differenzen
+  differenz <- x - y
+  d <- mean(differenz) / sd(differenz)
+  
   set.seed(seed)
+  
   p_werte <- replicate(
     B,
-    {index <- sample(
-      seq_len(n),
-      size = n,
-      replace = TRUE)
-    wilcox.test(
-      x[index],
-      y[index],
-      paired = TRUE,
-      alternative = "greater",
-      exact = FALSE
-    )$p.value})
+    {
+      index <- sample(
+        seq_len(n),
+        size = n,
+        replace = TRUE
+      )
+      
+      wilcox.test(
+        x[index],
+        y[index],
+        paired = TRUE,
+        alternative = "greater",
+        exact = FALSE
+      )$p.value
+    }
+  )
+  
   power <- mean(p_werte < alpha, na.rm = TRUE)
+  
   data.frame(
     Modell = modell,
     Test = "Wilcoxon",
     n = n,
-    Cohen_dz = NA,
+    Cohen_dz = d,
     Alpha = alpha,
     Power = power,
-    Beta = 1 - power)}
+    Beta = 1 - power
+  )
+}
 
 #### Hilfsfunktion 3: Friedman
 power_friedman_test <- function(matrix,
@@ -1963,6 +1979,53 @@ power_uebersicht <- bind_rows(
     Beta_Prozent = round(Beta * 100, 2),
     Cohen_dz = round(Cohen_dz, 3))
 power_uebersicht
+
+# Cohen's dz unabhängig von der Poweranalyse
+cohen_dz <- function(differenz) {
+  differenz <- na.omit(differenz)
+  mean(differenz) / sd(differenz)
+}
+
+# Fall 1: Größe
+dz_groesse <- cohen_dz(
+  inkonsistenz_groesse$Differenz_Inkonsistenz
+)
+
+# Fall 2: Position
+dz_position <- cohen_dz(
+  inkonsistenz_position$Differenz_Inkonsistenz
+)
+
+# Fall 3: Stärke
+dz_staerke <- cohen_dz(
+  inkonsistenz_staerke$Differenz_Inkonsistenz
+)
+
+# Fall 5: Schuh
+dz_schuh <- cohen_dz(
+  inkonsistenz_schuh$Differenz_Inkonsistenz
+)
+
+# Übersicht
+cohen_dz_uebersicht <- data.frame(
+  Vergleich = c(
+    "Größe: GDS vs. KDS",
+    "Position: GZS vs. GDS",
+    "Stärke: GDS vs. GDL",
+    "Schuh: KDS vs. M"
+  ),
+  Cohen_dz = c(
+    dz_groesse,
+    dz_position,
+    dz_staerke,
+    dz_schuh
+  )
+) %>%
+  mutate(
+    Cohen_dz = round(Cohen_dz, 3)
+  )
+
+cohen_dz_uebersicht
 
 # Unterschiedliche Gruppen: Geschlechtsunterschiede 
 # Die wiederkehrenden Arbeitsschritte werden in Hilfsfunktionen zusammengefasst.
